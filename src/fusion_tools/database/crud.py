@@ -7,10 +7,10 @@ from .models import (
 import datetime
 
 # --- User CRUD ---
-def get_or_create_user(db: Session, username: str, email: str = None):
+def get_or_create_user(db: Session,id:str, username: str, email: str = None):
     user = db.query(User).filter_by(username=username).first()
     if not user:
-        user = User(username=username, email=email)
+        user = User(id=id, username=username, email=email)
         db.add(user)
         db.commit()
         db.refresh(user)

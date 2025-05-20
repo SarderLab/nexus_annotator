@@ -15,6 +15,8 @@ from dash_extensions.enrich import DashBlueprint, html, Input, Output, State, Pr
 from fusion_tools.visualization.vis_utils import get_pattern_matching_value
 from fusion_tools import DSATool
 
+from fusion_tools.database.core import get_db
+from fusion_tools.database.crud import get_or_create_user
 
 class DSALoginComponent(DSATool):
     """Handler for DSALoginComponent, enabling login to the running DSA instance
@@ -395,41 +397,77 @@ class DSALoginComponent(DSATool):
         if not any([i['value'] for i in ctx.triggered]):
             raise exceptions.PreventUpdate
         
-        session_data = json.loads(session_data)
+        loaded_session_data = json.loads(session_data)
         
-        username_input = get_pattern_matching_value(username_input)
-        password_input = get_pattern_matching_value(password_input)
-
-        if username_input is None or username_input == '':
+        username_input_val = get_pattern_matching_value(username_input)
+        password_input_val = get_pattern_matching_value(password_input)
+        
+        username_error_div = []
+        if username_input_val is None or username_input == '':
             username_error_div = dbc.Alert('Make sure to enter a username!',color = 'danger')
-        else:
-            username_error_div = []
-        
-        if password_input is None or password_input == '':
+            
+        password_error_div = []
+        if password_input_val is None or password_input == '':
             password_error_div = dbc.Alert('Make sure to enter your password!',color = 'danger')
-        else:
-            password_error_div = []
+            
 
-        if not any([i is None or i=='' for i in [username_input,password_input]]):
-            new_login_output = self.handler.authenticate_new(
-                username = username_input,
-                password= password_input
-            )
-            if not type(new_login_output)==str:
-                session_data['current_user'] = new_login_output
-                current_user = f"Welcome, {new_login_output['login']}"
-                session_data = json.dumps(session_data)
-                login_error_div = []
-            else:
-                session_data = no_update
-                current_user = no_update
-                login_error_div = dbc.Alert(f'Error logging in with username: {username_input}',color = 'danger')
-        else:
-            session_data = no_update
-            current_user = no_update
-            login_error_div = []
+        # if not any([i is None or i=='' for i in [username_input,password_input]]):
+        #     new_login_output = self.handler.authenticate_new(
+        #         username = username_input,
+        #         password= password_input
+        #     )
+        #     if not type(new_login_output)==str:
+        #         session_data['current_user'] = new_login_output
+        #         current_user = f"Welcome, {new_login_output['login']}"
+        #         session_data = json.dumps(session_data)
+        #         login_error_div = []
+        #     else:
+        #         session_data = no_update
+        #         current_user = no_update
+        #         login_error_div = dbc.Alert(f'Error logging in with username: {username_input}',color = 'danger')
+        # else:
+        #     session_data = no_update
+        #     current_user = no_update
+        #     login_error_div = []
         
-        return [username_error_div], [password_error_div], [login_error_div], [current_user], session_data
+        # return [username_error_div], [password_error_div], [login_error_div], [current_user], session_data
+        
+        current_user_display = no_update
+        updated_session_data_str = no_update
+        login_error_div = []
+        
+        if not username_error_div and not password_error_div:
+            new_login_output = self.handler.authententicate_new(
+                username = username_input_val,
+                password= password_input_val
+            )
+            
+            if not type(new_login_output)==str:
+                loaded_session_data['current_user'] = new_login_output
+                current_user_display = f"Welcome, {new_login_output['login']}"
+                current_user_details = loaded_session_data["current_user"]
+
+                try:
+                    username_to_store = current_user_details['login']
+                    email_to_store = current_user_details['email']
+                    user_id = current_user_details["_id"]
+                    with get_db() as db:
+                        db_user = get_or_create_user(db, id=user_id, username=username_to_store, email=email_to_store)
+                        print(f"User {db_user.username} has been added to the database")
+                except Exception as e:
+                    print("Database Operation failed!! {e}")
+
+                updated_session_data_str = json.dumps(loaded_session_data)
+            
+            else:
+                login_error_div = dbc.Alert(f"Error logging in with username: {username_input_val}. Details {new_login_output}", color='danger')
+        
+        else:
+            pass
+        
+        
+        return [username_error_div], [password_error_div], [login_error_div], [current_user_display], updated_session_data_str
+            
 
     def submit_create_account(self, clicked,firstname_input, lastname_input, email_input, username_input, password_input,session_data):
         

@@ -18,7 +18,7 @@ class ActivityStatus(enum.Enum):
 class User(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(String, primary_key=True, autoincrement=False)
-    username: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    username: Mapped[str] = mapped_column(String, index=True, nullable=False)
     email: Mapped[Optional[str]] = mapped_column(String, unique=True, index=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
 
