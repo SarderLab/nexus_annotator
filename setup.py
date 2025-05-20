@@ -29,6 +29,7 @@ setuptools.setup(
         "statsmodels>=0.14.0",
         "typing-extensions>=4.8.0",
         "girder-job-sequence>=0.2.7",
+        "sqlalchemy>=1.4"
     ],
     extras_require = {
         'interactive': [

@@ -25,6 +25,8 @@ import nest_asyncio
 from pathlib import Path
 import dash_uploader as du
 
+from fusion_tools.database.core import initialize_database
+
 class Visualization:
     """General holder class used for initialization. Components added after initialization.
     To initialize a new visualization session, you can use the following syntax:
@@ -139,8 +141,8 @@ class Visualization:
 
         self.viewer_app = DashProxy(
             __name__,
-            url_base_pathname = None if not self.app_options['jupyter'] else self.app_options.get('url_base_pathname'),
-            requests_pathname_prefix = '/app/' if not self.app_options['jupyter'] else None,
+            #url_base_pathname = None if not self.app_options['jupyter'] else self.app_options.get('url_base_pathname'),
+            #requests_pathname_prefix = '/' if not self.app_options['jupyter'] else None,
             suppress_callback_exceptions = True,
             external_stylesheets = self.app_options['external_stylesheets'],
             external_scripts = self.app_options['external_scripts'],
@@ -265,7 +267,7 @@ class Visualization:
 
                 # If the page needs to be updated based on changes in anchor-vis-data
                 page_content = self.update_page_layout(
-                    page_components_list = self.components[pathname.replace('/app/','').replace('-',' ')],
+                    page_components_list = self.components[pathname.replace('/','').replace('-',' ')],
                     use_prefix = True,
                     session_data=session_data
                 )
@@ -312,7 +314,7 @@ class Visualization:
             new_pathname = list(self.layout_dict.keys())[ctx.triggered_id['index']]
             # If the page needs to be updated based on changes in anchor-vis-data
             page_content = self.update_page_layout(
-                page_components_list = self.components[new_pathname.replace('/app/','').replace('-',' ')],
+                page_components_list = self.components[new_pathname.replace('/','').replace('-',' ')],
                 use_prefix = True,
                 session_data=session_data
             )
@@ -542,45 +544,77 @@ class Visualization:
     def update_page_layout(self, page_components_list:list, use_prefix:bool, session_data:Union[list,dict]):
         
         page_children = []
-        for row_idx,row in enumerate(page_components_list):
+        for row_idx,row_item in enumerate(page_components_list): # 'row_item' is either a list of columns or a single component for the row
             row_children = []
-            if type(row)==list:
-                for col_idx, col in enumerate(row):
-                    if not type(col)==list:
-                        # If this component needs to be updated with new session data, call that method here
-                        if col.session_update:
-                            col_layout = col.update_layout(
+            
+            if type(row_item)==list: # This row contains multiple columns
+                for col_idx, col_definition in enumerate(row_item): # 'col_definition' is what might be a tuple
+                    
+                    # --- MINIMAL MODIFICATION START: Parse column properties ---
+                    col_props = {'width': True} 
+                    actual_component_or_tabs_list = col_definition
+
+                    if isinstance(col_definition, tuple) and \
+                       len(col_definition) == 2 and \
+                       isinstance(col_definition[1], dict):
+                        actual_component_or_tabs_list = col_definition[0]
+                        col_props = col_definition[1]
+                        
+                    if not type(actual_component_or_tabs_list)==list:
+                        # This is a single component in the column
+                        component_obj = actual_component_or_tabs_list 
+                        if component_obj.session_update:
+                            col_layout = component_obj.update_layout(
                                 session_data = session_data, 
                                 use_prefix = use_prefix
                             )
                         else:
-                            # If it doesn't need to be updated, get the layout as is
-                            col_layout = col.blueprint.layout
+                            col_layout = component_obj.blueprint.layout
 
                         row_children.append(
                             dbc.Col(
                                 dbc.Card([
                                     dbc.CardHeader(
-                                        col.title
+                                        component_obj.title
                                     ),
                                     dbc.CardBody(
                                         col_layout
                                     )
                                 ]),
-                                width = True
+                                **col_props # Apply column properties
                             )
                         )
 
                     else:
+                        # This is a list of components, to be rendered as tabs in this column
+                        tabs_list = actual_component_or_tabs_list
                         tabs_children = []
-                        for tab_idx, tab in enumerate(col):
-                            if tab.session_update:
-                                tab_layout = tab.update_layout(
+                        
+                        # Original logic for determining active_tab (using first tab's title)
+                        # (Assuming component_prefix is available on tab items for ID, or use a default)
+                        # The original code set active_tab based on col[0].title, where 'col' was the list of tabs
+                        active_tab_id = ""
+                        if tabs_list: # Ensure tabs_list is not empty
+                             active_tab_id = tabs_list[0].title.lower().replace(' ','-')
+                        
+                        # Original logic for tabs_id
+                        # tabs_id = {'type': f'{tabs_list[0].component_prefix}-vis-layout-tabs','index': np.random.randint(0,1000)}
+                        # This assumes component_prefix is on the tab object. If not, a fallback might be needed
+                        # For robustness, let's check if tabs_list[0] exists and has component_prefix
+                        tabs_id_type_prefix = "unknown"
+                        if tabs_list and hasattr(tabs_list[0], 'component_prefix'):
+                            tabs_id_type_prefix = tabs_list[0].component_prefix
+                        tabs_id = {'type': f'{tabs_id_type_prefix}-vis-layout-tabs','index': np.random.randint(0,1000)}
+
+
+                        for tab_idx, tab_component_obj in enumerate(tabs_list):
+                            if tab_component_obj.session_update:
+                                tab_layout = tab_component_obj.update_layout(
                                     session_data = session_data,
                                     use_prefix = use_prefix
                                 )
                             else:
-                                tab_layout = tab.blueprint.layout
+                                tab_layout = tab_component_obj.blueprint.layout
 
                             tabs_children.append(
                                 dbc.Tab(
@@ -589,46 +623,57 @@ class Visualization:
                                             tab_layout
                                         )
                                     ),
-                                    label = tab.title,
-                                    tab_id = tab.title.lower().replace(' ','-')
+                                    label = tab_component_obj.title,
+                                    tab_id = tab_component_obj.title.lower().replace(' ','-')
                                 )
                             )
 
                         row_children.append(
                             dbc.Col(
                                 dbc.Card([
-                                    dbc.CardHeader('Tools'),
+                                    dbc.CardHeader('Tools'), # Original header for tabs
                                     dbc.CardBody(
                                         dbc.Tabs(
                                             tabs_children,
-                                            id = {'type': f'{col[0].component_prefix}-vis-layout-tabs','index': np.random.randint(0,1000)},
-                                            active_tab = col[0].title.lower().replace(' ','-')
+                                            id = tabs_id, 
+                                            active_tab = active_tab_id
                                         )
                                     )
                                 ]),
-                                width = True
+                                **col_props # Apply column properties
                             )
                         )
+            else: # This row is a single component (spanning the whole logical row)
+                row_definition = row_item # 'row_item' is the component definition for the whole row
 
-            else:
+                # --- MINIMAL MODIFICATION START: Parse column properties ---
+                col_props = {'width': True}
+                actual_component_obj = row_definition # This is the component for the full row
+
+                if isinstance(row_definition, tuple) and \
+                   len(row_definition) == 2 and \
+                   isinstance(row_definition[1], dict):
+                    actual_component_obj = row_definition[0]
+                    col_props = row_definition[1]
+                # --- MINIMAL MODIFICATION END ---
                 
-                if row.session_update:
-                    row_layout = row.update_layout(
+                if actual_component_obj.session_update:
+                    row_layout = actual_component_obj.update_layout(
                         session_data = session_data,
                         use_prefix = use_prefix
                     )
                 else:
-                    row_layout = row.blueprint.layout
+                    row_layout = actual_component_obj.blueprint.layout
 
                 row_children.append(
                     dbc.Col(
                         dbc.Card([
-                            dbc.CardHeader(row.title),
+                            dbc.CardHeader(actual_component_obj.title),
                             dbc.CardBody(
                                 row_layout
                             )
                         ]),
-                        width = True
+                        **col_props # Apply column properties
                     )
                 )
             
@@ -651,168 +696,174 @@ class Visualization:
         n_cols = 1
         n_tabs = 0
 
-        component_prefix = 0
-        self.layout_dict = {}
-        page_components = []
-        row_components = []
-        col_components = []
-        tab_components = []
+        component_prefix = 0 # As in original
+        self.layout_dict = {} # As in original
+        page_components = [] # As in original, for uploader check
 
         if type(self.components)==list:
             n_rows = len(self.components)
             if any([type(i)==list for i in self.components]):
                 n_cols = max([len(i) for i in self.components if type(i)==list])
-
                 if any([any([type(j)==list for j in i]) for i in self.components if type(i)==list]):
                     n_tabs = max([max([len(i) for i in j if type(i)==list]) for j in self.components if type(j)==list])
-
             print(f'------Creating Visualization with {n_rows} rows, {n_cols} columns, and {n_tabs} tabs--------')
             print(f'----------------- Components in the same {self.linkage} may communicate through callbacks---------')
-        
-            self.components = {
-                'main': self.components 
-            }
-
+            self.components = { 'main': self.components }
         elif type(self.components)==dict:
-            for page in self.components:
+            for page_key in self.components: # 'page_key' to avoid conflict with 'page' html var
                 n_cols = 1
                 n_tabs = 0
-                n_rows = len(self.components[page])
-                if any([type(i)==list for i in self.components[page]]):
-                    n_cols = max([len(i) for i in self.components[page] if type(i)==list])
-
-                    if any([any([type(j)==list for j in i]) for i in self.components[page] if type(i)==list]):
-                        n_tabs = max([max([len(i) for i in j if type(i)==list]) for j in self.components[page] if type(j)==list])
-
-                print(f'------Creating Visualization Page {page} with {n_rows} rows, {n_cols} columns, and {n_tabs} tabs--------')
+                n_rows = len(self.components[page_key])
+                if any([type(i)==list for i in self.components[page_key]]):
+                    n_cols = max([len(i) for i in self.components[page_key] if type(i)==list])
+                    if any([any([type(j)==list for j in i]) for i in self.components[page_key] if type(i)==list]):
+                        n_tabs = max([max([len(i) for i in j if type(i)==list]) for j in self.components[page_key] if type(j)==list])
+                print(f'------Creating Visualization Page {page_key} with {n_rows} rows, {n_cols} columns, and {n_tabs} tabs--------')
                 print(f'----------------- Components in the same {self.linkage} may communicate through callbacks---------')
-            
-
+        
         # Iterating through each named page
-        for page_idx,page in enumerate(list(self.components.keys())):
-            page_children = []
+        # 'page_name_key' corresponds to 'page' in the original code's outer loop
+        for page_idx,page_name_key in enumerate(list(self.components.keys())):
+            layout_dict_page_children = [] # Was 'page_children' in original for layout_dict
             
+            # ... (linkage component_prefix logic for page scope as in original) ...
             if type(self.linkage)==str:
-                if self.linkage=='page':
-                    component_prefix = page_idx
+                if self.linkage=='page': component_prefix = page_idx
             elif type(self.linkage)==list:
-                if self.linkage[page_idx]=='page':
-                    component_prefix = page_idx
+                if self.linkage[page_idx]=='page': component_prefix = page_idx
 
-            row_components = []
-            for row_idx,row in enumerate(self.components[page]):
+            row_components = [] # As in original (for uploader check structure for current page)
+            # 'row_content_definition' corresponds to 'row' in the original code's second loop
+            for row_idx,row_content_definition in enumerate(self.components[page_name_key]): 
                 
+                # ... (linkage component_prefix logic for row scope as in original) ...
                 if type(self.linkage)==str:
-                    if self.linkage=='row':
-                        component_prefix = row_idx
+                    if self.linkage=='row': component_prefix = row_idx
                 elif type(self.linkage)==list:
-                    if self.linkage[page_idx]=='row':
-                        component_prefix = row_idx
+                    if self.linkage[page_idx]=='row': component_prefix = row_idx
 
-                row_children = []
-                if type(row)==list:
-                    col_components = []
-                    for col_idx,col in enumerate(row):
+                layout_dict_row_children = [] # Was 'row_children' in original for current row in layout_dict
 
+                # 'row_content_definition' is 'row' from original code here
+                if type(row_content_definition)==list: # This row contains multiple columns
+                    col_components = [] # As in original (for uploader structure)
+                    # 'col_content_item' corresponds to 'col' in the original code's third loop
+                    for col_idx,col_content_item in enumerate(row_content_definition): 
+
+                        # ... (linkage component_prefix logic for col scope as in original) ...
                         if type(self.linkage)==str:
-                            if self.linkage=='col':
-                                component_prefix = col_idx
+                            if self.linkage=='col': component_prefix = col_idx
                         elif type(self.linkage)==list:
-                            if self.linkage[page_idx]=='col':
-                                component_prefix = col_idx
+                            if self.linkage[page_idx]=='col': component_prefix = col_idx
+                        
+                        col_props = {'width': True}
+                        actual_col_data = col_content_item # This is what was 'col' in original
 
-                        if not type(col)==list:
-                            col.load(component_prefix = component_prefix)
-                            col.gen_layout(session_data = self.vis_store_content)
-                            col_components.append(str(col))
+                        if isinstance(col_content_item, tuple) and \
+                           len(col_content_item) == 2 and \
+                           isinstance(col_content_item[1], dict):
+                            actual_col_data = col_content_item[0]
+                            col_props = col_content_item[1]
+                        
+                        # 'actual_col_data' is component or list of tabs (was 'col' in original)
+                        if not type(actual_col_data)==list:
+                            # 'actual_col_data' is a single component object (was 'col' in original)
+                            component_obj = actual_col_data
+                            component_obj.load(component_prefix = component_prefix)
+                            component_obj.gen_layout(session_data = self.vis_store_content)
+                            col_components.append(str(component_obj)) # Original uploader data
                             
-                            row_children.append(
+                            layout_dict_row_children.append(
                                 dbc.Col(
                                     dbc.Card([
-                                        dbc.CardHeader(
-                                            col.title
-                                        ),
+                                        dbc.CardHeader(component_obj.title), # Original access
                                         dbc.CardBody(
-                                            col.blueprint.embed(self.viewer_app)
+                                            component_obj.blueprint.embed(self.viewer_app)
                                         )
                                     ]),
-                                    width = True
+                                    **col_props
                                 )
                             )
-                        else:
-                            tab_components = []
-                            tabs_children = []
-                            for tab_idx,tab in enumerate(col):
+                        else: 
+                            # 'actual_col_data' is a list of tabs (was 'col' in original)
+                            tabs_list_data = actual_col_data # This is 'col' from original for tab purposes
+                            tab_components = [] # As in original (for uploader)
+                            tabs_children = []  # As in original (for dbc.Tabs)
 
+                            # 'tab_item' is 'tab' from original
+                            for tab_idx,tab_item in enumerate(tabs_list_data):
+                                # ... (linkage component_prefix logic for tab scope as in original) ...
                                 if type(self.linkage)==str:
-                                    if self.linkage=='tab':
-                                        component_prefix = tab_idx
+                                    if self.linkage=='tab': component_prefix = tab_idx
                                 elif type(self.linkage)==list:
-                                    if self.linkage[page_idx]=='tab':
-                                        component_prefix = tab_idx
+                                    if self.linkage[page_idx]=='tab': component_prefix = tab_idx
                                 
-                                tab.load(component_prefix = component_prefix)
-                                tab.gen_layout(session_data = self.vis_store_content)
-                                tab_components.append(str(tab))
+                                tab_item.load(component_prefix = component_prefix)
+                                tab_item.gen_layout(session_data = self.vis_store_content)
+                                tab_components.append(str(tab_item)) # Original uploader data
 
                                 tabs_children.append(
                                     dbc.Tab(
                                         dbc.Card(
                                             dbc.CardBody(
-                                                tab.blueprint.embed(self.viewer_app)
+                                                tab_item.blueprint.embed(self.viewer_app)
                                             )
                                         ),
-                                        label = tab.title,
-                                        tab_id = tab.title.lower().replace(' ','-')
+                                        label = tab_item.title,  # Original access
+                                        tab_id = tab_item.title.lower().replace(' ','-') # Original access
                                     )
                                 )
-                            col_components.append(tab_components)
+                            col_components.append(tab_components) # Original uploader data
 
-                            row_children.append(
+                            layout_dict_row_children.append(
                                 dbc.Col(
                                     dbc.Card([
-                                        dbc.CardHeader('Tools'),
+                                        dbc.CardHeader('Tools'), # Original
                                         dbc.CardBody(
                                             dbc.Tabs(
                                                 tabs_children,
-                                                id = {'type': f'vis-layout-tabs','index': np.random.randint(0,1000)},
-                                                active_tab=col[0].title.lower().replace(' ','-')
+                                                # Original ID and active_tab for tabs in get_layout_children:
+                                                id = {'type': f'vis-layout-tabs','index': np.random.randint(0,1000)}, 
+                                                active_tab=tabs_list_data[0].title.lower().replace(' ','-') # Original access
                                             )
                                         )
                                     ]),
-                                    width = True
+                                    **col_props
                                 )
                             )
-                
-                    row_components.append(col_components)
-                else:
-                    
-                    row.load(component_prefix = component_prefix)
-                    row.gen_layout(session_data = self.vis_store_content)
-                    row_components.append(str(row))
+                    row_components.append(col_components) # Original uploader data
+                else: 
+                    # 'row_content_definition' is a single component for the row (was 'row' in original)
+                    col_props = {'width': True}
+                    actual_row_component_data = row_content_definition
 
-                    row_children.append(
+                    if isinstance(row_content_definition, tuple) and \
+                       len(row_content_definition) == 2 and \
+                       isinstance(row_content_definition[1], dict):
+                        actual_row_component_data = row_content_definition[0]
+                        col_props = row_content_definition[1]
+                    
+                    # 'actual_row_component_data' is the component (was 'row' in original)
+                    actual_row_component_data.load(component_prefix = component_prefix)
+                    actual_row_component_data.gen_layout(session_data = self.vis_store_content)
+                    row_components.append(str(actual_row_component_data)) # Original uploader data
+
+                    layout_dict_row_children.append(
                         dbc.Col(
                             dbc.Card([
-                                dbc.CardHeader(row.title),
+                                dbc.CardHeader(actual_row_component_data.title), # Original access
                                 dbc.CardBody(
-                                    row.blueprint.embed(self.viewer_app)
+                                    actual_row_component_data.blueprint.embed(self.viewer_app)
                                 )
                             ]),
-                            width = True
+                            **col_props
                         )
                     )
+                layout_dict_page_children.append(dbc.Row(layout_dict_row_children))
+            page_components.append(row_components) # Original uploader data collection
+            self.layout_dict['/'+page_name_key.replace(" ","-")] = layout_dict_page_children
 
-                page_children.append(
-                    dbc.Row(
-                        row_children
-                    )
-                )
-
-            page_components.append(row_components)
-            self.layout_dict['/app/'+page.replace(" ","-")] = page_children
-
-        upload_check = self.check_for_uploader(page_components)
+        upload_check = self.check_for_uploader(page_components) # Original uploader check
         if upload_check:
             du.configure_upload(
                 self.viewer_app, 
@@ -886,8 +937,10 @@ class Visualization:
 
             if not self.local_tile_server is None:
                 app.include_router(self.local_tile_server.router)
-            
-            app.mount(path='/app',app=WSGIMiddleware(self.viewer_app.server))
+            print("Initializing Database")
+            initialize_database()
+            print("Initialized Database")
+            app.mount(path='/',app=WSGIMiddleware(self.viewer_app.server))
             uvicorn.run(app,host=self.app_options['host'],port=self.app_options['port'])
 
         else:
