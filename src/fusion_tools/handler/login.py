@@ -409,35 +409,13 @@ class DSALoginComponent(DSATool):
         password_error_div = []
         if password_input_val is None or password_input == '':
             password_error_div = dbc.Alert('Make sure to enter your password!',color = 'danger')
-            
-
-        # if not any([i is None or i=='' for i in [username_input,password_input]]):
-        #     new_login_output = self.handler.authenticate_new(
-        #         username = username_input,
-        #         password= password_input
-        #     )
-        #     if not type(new_login_output)==str:
-        #         session_data['current_user'] = new_login_output
-        #         current_user = f"Welcome, {new_login_output['login']}"
-        #         session_data = json.dumps(session_data)
-        #         login_error_div = []
-        #     else:
-        #         session_data = no_update
-        #         current_user = no_update
-        #         login_error_div = dbc.Alert(f'Error logging in with username: {username_input}',color = 'danger')
-        # else:
-        #     session_data = no_update
-        #     current_user = no_update
-        #     login_error_div = []
-        
-        # return [username_error_div], [password_error_div], [login_error_div], [current_user], session_data
         
         current_user_display = no_update
         updated_session_data_str = no_update
         login_error_div = []
         
         if not username_error_div and not password_error_div:
-            new_login_output = self.handler.authententicate_new(
+            new_login_output = self.handler.authenticate_new(
                 username = username_input_val,
                 password= password_input_val
             )
@@ -450,10 +428,10 @@ class DSALoginComponent(DSATool):
                 try:
                     username_to_store = current_user_details['login']
                     email_to_store = current_user_details['email']
-                    user_id = current_user_details["_id"]
+
                     with get_db() as db:
-                        db_user = get_or_create_user(db, id=user_id, username=username_to_store, email=email_to_store)
-                        print(f"User {db_user.username} has been added to the database")
+                        db_user = get_or_create_user(db,username=username_to_store, email=email_to_store)
+                        print(f"User {db_user.username} has been added to the database {db_user.id}")
                 except Exception as e:
                     print("Database Operation failed!! {e}")
 
@@ -475,28 +453,25 @@ class DSALoginComponent(DSATool):
         if not any([i['value'] for i in ctx.triggered]):
             raise exceptions.PreventUpdate
         
-        session_data = json.loads(session_data)
+        loaded_session_data = json.loads(session_data)
         
-        firstname_input = get_pattern_matching_value(firstname_input)
-        lastname_input = get_pattern_matching_value(lastname_input)
-        username_input = get_pattern_matching_value(username_input)
-        password_input = get_pattern_matching_value(password_input)
-        email_input = get_pattern_matching_value(email_input)
+        firstname_input_val = get_pattern_matching_value(firstname_input)
+        lastname_input_val = get_pattern_matching_value(lastname_input)
+        username_input_val = get_pattern_matching_value(username_input)
+        password_input_val = get_pattern_matching_value(password_input)
+        email_input_val = get_pattern_matching_value(email_input)
 
-        if username_input is None or username_input=='':
+        username_error_div = []
+        if username_input_val is None or username_input_val=='':
             username_error_div = dbc.Alert('Make sure to enter a username!',color = 'danger')
-        else:
-            username_error_div = []
         
-        if password_input is None or password_input == '':
+        password_error_div = []
+        if password_input_val is None or password_input_val == '':
             password_error_div = dbc.Alert('Make sure to enter your password!',color = 'danger')
-        else:
-            password_error_div = []
-
-        if email_input is None or email_input == '':
+            
+        email_error_div = []
+        if email_input_val is None or email_input_val == '':
             email_error_div = dbc.Alert('Make sure to enter a valid email address! (And not the same as any other account)',color = 'danger')
-        else:
-            email_error_div = []
 
         if not any([i is None or i =='' for i in [firstname_input,lastname_input,email_input,username_input,password_input]]):
             create_user_output = self.handler.create_new_user(

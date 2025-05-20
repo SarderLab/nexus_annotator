@@ -17,7 +17,7 @@ class ActivityStatus(enum.Enum):
 
 class User(Base):
     __tablename__ = "users"
-    id: Mapped[int] = mapped_column(String, primary_key=True, autoincrement=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String, index=True, nullable=False)
     email: Mapped[Optional[str]] = mapped_column(String, unique=True, index=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
@@ -27,7 +27,7 @@ class User(Base):
 
 class Slide(Base):
     __tablename__ = "slides"
-    id: Mapped[int] = mapped_column(String, primary_key=True, autoincrement=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
     slide_id: Mapped[str] = mapped_column(String, unique=True, index=True)   # e.g., filename or UUID
     display_name: Mapped[Optional[str]] = mapped_column(String)
 
@@ -35,7 +35,7 @@ class Slide(Base):
 
 class AnnotationFile(Base):
     __tablename__ = "annotation_files"
-    id: Mapped[int] = mapped_column(String, primary_key=True, autoincrement=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
     slide_id: Mapped[int] = mapped_column(ForeignKey("slides.id"), nullable=False)
     file_type: Mapped[str] = mapped_column(String, nullable=False)           # e.g., 'glomerulus', 'tubule'
     file_path: Mapped[str] = mapped_column(String, nullable=True)            # optional, where the file is on disk/api
@@ -47,7 +47,7 @@ class AnnotationFile(Base):
 
 class AnnotationData(Base):
     __tablename__ = "annotation_data"
-    id: Mapped[int] = mapped_column(String, primary_key=True, autoincrement=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
     annotation_file_id: Mapped[int] = mapped_column(ForeignKey("annotation_files.id"), nullable=False)
     annotation_idx: Mapped[str] = mapped_column(String, nullable=False)      # unique id in file (e.g., index, or object id)
     bbox: Mapped[Optional[str]] = mapped_column(String)                      # store bbox as stringified JSON or separate columns
