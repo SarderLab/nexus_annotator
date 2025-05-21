@@ -433,7 +433,7 @@ class DSALoginComponent(DSATool):
 
                     with get_db() as db:
                         db_user = get_or_create_user(db,id=user_id,username=username_to_store, email=email_to_store)
-                        
+                        print(f"User {db_user.id}")
                 except Exception as e:
                     print("Database Operation failed!! {e}")
 

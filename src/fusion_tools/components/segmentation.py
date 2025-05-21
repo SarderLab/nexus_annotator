@@ -42,6 +42,9 @@ from fusion_tools import Tool
 #TODO: Add schema selection for FeatureAnnotation and BulkLabels
 
 
+#Always required structure types - 
+ALWAYS_REQUIRED_STRUCTURE_TYPES = ['non_globally_sclerotic_glomeruli', 'globally_sclerotic_glomeruli']
+
 class FeatureAnnotation(Tool):
     """Enables annotation (drawing) on top of structures in the SlideMap using a separate interface.
 
@@ -961,7 +964,6 @@ class FeatureAnnotation(Tool):
             raise exceptions.PreventUpdate
 
         get_viewport = get_pattern_matching_value(get_viewport)
-
         structure_options = overlay_names
         structure_bboxes = {}
         if get_viewport:
@@ -1101,6 +1103,7 @@ class FeatureAnnotation(Tool):
         current_structure_data = json.loads(get_pattern_matching_value(current_structure_data))
         current_class_value = get_pattern_matching_value(current_class_value)
         slide_information = json.loads(get_pattern_matching_value(slide_information))
+        
         progress_value = 0
         progress_label = '0%'
 

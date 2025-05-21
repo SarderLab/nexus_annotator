@@ -129,15 +129,18 @@ def create_or_update_user_label(db: Session, user_id: int, annotation_id: int, l
     )
     now = datetime.datetime.utcnow()
     if entry:
-        entry.label = label
-        entry.updated_at = now
+        if entry.label != label:
+            entry.label = label
+            entry.updated_at = now
+            db.commit()
+            db.refresh(entry)
     else:
         entry = UserAnnotationLabel(
             user_id=user_id, annotation_id=annotation_id, label=label, created_at=now, updated_at=now
         )
         db.add(entry)
-    db.commit()
-    db.refresh(entry)
+        db.commit()
+        db.refresh(entry)
     return entry
 
 def get_user_label(db: Session, user_id: int, annotation_id: int):
@@ -166,18 +169,20 @@ def get_or_create_file_progress(db: Session, user_id: int, annotation_file_id: i
     return entry
 
 def update_file_progress(db: Session, user_id: int, annotation_file_id: int):
-    # Calculate percent completion and update status
-    total = db.query(AnnotationData).filter_by(annotation_file_id=annotation_file_id).count()
-    labeled = (
-        db.query(UserAnnotationLabel)
+    total_annotations = db.query(func.count(AnnotationData.id)).filter_by(annotation_file_id=annotation_file_id).scalar()
+    
+    labeled_annotations = (
+        db.query(func.count(UserAnnotationLabel.id))
         .join(AnnotationData, UserAnnotationLabel.annotation_id == AnnotationData.id)
         .filter(
             UserAnnotationLabel.user_id == user_id,
             AnnotationData.annotation_file_id == annotation_file_id
         )
-        .count()
+        .scalar()
     )
-    percent_complete = int(100 * labeled / total) if total else 0
+    
+    percent_complete = int(100 * labeled_annotations / total_annotations) if total_annotations and total_annotations > 0 else 0
+    
     if percent_complete == 0:
         status = ActivityStatus.PENDING
     elif percent_complete == 100:
@@ -185,12 +190,15 @@ def update_file_progress(db: Session, user_id: int, annotation_file_id: int):
     else:
         status = ActivityStatus.IN_PROGRESS
 
-    entry = get_or_create_file_progress(db, user_id, annotation_file_id)
-    entry.percent_complete = percent_complete
-    entry.status = status
-    entry.last_updated = datetime.datetime.utcnow()
-    db.commit()
-    db.refresh(entry)
+    entry = get_or_create_file_progress(db, user_id, annotation_file_id) # Ensures entry exists
+    
+    # Check if update is necessary
+    if entry.percent_complete != percent_complete or entry.status != status:
+        entry.percent_complete = percent_complete
+        entry.status = status
+        entry.last_updated = datetime.datetime.utcnow()
+        db.commit()
+        db.refresh(entry)
     return entry
 
 # --- Helper: Get next unlabeled annotation for user ---
@@ -213,25 +221,71 @@ def get_next_unlabeled_annotation(db: Session, user_id: int, annotation_file_id:
 
 # --- High-level: Mark label and update progress ---
 def label_annotation_and_update_progress(db: Session, user_id: int, annotation_id: int, label: str):
+    # annotation_id is AnnotationData.id
     label_entry = create_or_update_user_label(db, user_id, annotation_id, label)
-    annotation = db.query(AnnotationData).filter_by(id=annotation_id).first()
-    update_file_progress(db, user_id, annotation.annotation_file_id)
+    
+    # Get annotation_file_id from the annotation_id
+    annotation = db.query(AnnotationData.annotation_file_id).filter_by(id=annotation_id).scalar_one_or_none()
+    if annotation_file_id := annotation: # Check if not None
+        update_file_progress(db, user_id, annotation_file_id) # Mypy might complain if annotation_file_id could be None
+    else:
+        print(f"Could not find annotation_file_id for annotation_id {annotation_id} to update progress.")
+
     return label_entry
 
 # --- Progress summary for a slide (aggregates files) ---
-def get_slide_progress_summary(db: Session, user_id: int, slide_id: int):
-    files = get_annotation_files_for_slide(db, slide_id)
-    summary = []
-    for f in files:
-        prog = (
-            db.query(UserFileProgress)
-            .filter_by(user_id=user_id, annotation_file_id=f.id)
-            .first()
-        )
-        summary.append({
-            "file_type": f.file_type,
-            "percent_complete": prog.percent_complete if prog else 0,
-            "status": prog.status.value if prog else "pending",
-        })
-    return summary
+def get_slide_progress_summary_for_user(db: Session, user_id: int, slide_internal_id: int, required_only: bool = False):
+    """
+    Calculates overall slide progress for a user based on 'required' AnnotationFiles.
+    Returns:
+        - average_completeness (float): Average percentage across required files.
+        - all_required_completed (bool): True if all required files are 100% complete.
+        - details (list): List of dicts with progress for each required file.
+    """
+    required_files = get_annotation_files_for_slide(db, slide_internal_id, required_only=True)
+    
+    if not required_files and required_only: # If we only care about required files and there are none defined as such
+        return 0.0, True, [] # No required work, so it's "complete" in a vacuum, or 0% if you prefer. Let's say 0% and not all_complete.
+                                   # This depends on desired behavior if no structures are marked as required.
+                                   # Assuming if required_only=True and no files are required, slide is not considered complete by default.
+                                   # If required_only=False, it calculates for all files.
 
+    if not required_files: # No annotation files at all for this slide (required or not)
+        return 0.0, True, [] # Or False if empty means not complete
+
+    total_percent_sum = 0
+    num_required_files_processed = 0
+    all_completed_flag = True
+    progress_details = []
+
+    files_to_check = required_files if required_only and required_files else get_annotation_files_for_slide(db, slide_internal_id, required_only=False)
+    if not files_to_check: # No files to check implies 0% completion
+        return 0.0, False, []
+
+
+    for f in files_to_check:
+        if required_only and not f.is_required_for_completeness: # Should not happen if required_files query is correct
+            continue
+
+        prog_entry = get_or_create_file_progress(db, user_id, f.id)
+        
+        total_percent_sum += prog_entry.percent_complete
+        num_required_files_processed += 1
+        if prog_entry.status != ActivityStatus.COMPLETED:
+            all_completed_flag = False
+        
+        progress_details.append({
+            "file_type": f.file_type,
+            "annotation_file_id": f.id,
+            "percent_complete": prog_entry.percent_complete,
+            "status": prog_entry.status.value if prog_entry else ActivityStatus.PENDING.value, # Ensure prog_entry exists
+            "is_required": f.is_required_for_completeness
+        })
+
+    if num_required_files_processed == 0: # No required files had progress entries or no required files exist
+        # This case depends on interpretation: if no required work, is it 100% complete or 0%?
+        # Let's assume if no required files are defined and we ask for required_only, it means nothing to do, so 0% to show up.
+        return 0.0, False, [] 
+
+    average_completeness = total_percent_sum / num_required_files_processed
+    return average_completeness, all_completed_flag, progress_details
