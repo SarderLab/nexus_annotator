@@ -61,16 +61,21 @@ class AnnotationData(Base):
 class UserAnnotationLabel(Base):
     __tablename__ = "user_annotation_labels"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False) # Ensure User.id is also str if this is str
     annotation_id: Mapped[int] = mapped_column(ForeignKey("annotation_data.id"), nullable=False)
-    label: Mapped[str] = mapped_column(String, nullable=False)
+    
+    label_name: Mapped[str] = mapped_column(String, nullable=False) # ADDED
+    label_value: Mapped[str] = mapped_column(String, nullable=False) # MODIFIED (was label)
+    label_comment: Mapped[Optional[str]] = mapped_column(String) # ADDED
+    
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
     updated_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     user = relationship("User", back_populates="annotation_labels")
     annotation = relationship("AnnotationData", back_populates="user_labels")
 
-    __table_args__ = (UniqueConstraint("user_id", "annotation_id", name="_user_annotation_uc"),)
+    # MODIFIED Unique constraint to include label_name
+    __table_args__ = (UniqueConstraint("user_id", "annotation_id", "label_name", name="_user_annotation_label_uc"),)
 
 class UserFileProgress(Base):
     __tablename__ = "user_file_progress"

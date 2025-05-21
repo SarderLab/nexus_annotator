@@ -5,10 +5,11 @@ from .models import (
     UserAnnotationLabel, UserFileProgress, ActivityStatus
 )
 import datetime
+from typing import Optional
 
 # --- User CRUD ---
 def get_or_create_user(db: Session, id:str, username: str, email: str = None):
-    user = db.query(User).filter_by(username=username).first()
+    user = db.query(User).filter_by(id=id).first()
     if not user:
         user = User(id= id, username=username, email=email)
         db.add(user)
@@ -110,7 +111,7 @@ def populate_annotations_from_file(db: Session, annotation_file_id: int, annotat
     return db.query(AnnotationData).filter_by(annotation_file_id=annotation_file_id).all()
 
 # --- UserAnnotationLabel CRUD ---
-def get_user_labels_for_file(db: Session, user_id: int, annotation_file_id: int):
+def get_user_labels_for_file(db: Session, user_id: str, annotation_file_id: int):
     return (
         db.query(UserAnnotationLabel)
         .join(AnnotationData, UserAnnotationLabel.annotation_id == AnnotationData.id)
@@ -121,32 +122,40 @@ def get_user_labels_for_file(db: Session, user_id: int, annotation_file_id: int)
         .all()
     )
 
-def create_or_update_user_label(db: Session, user_id: int, annotation_id: int, label: str):
+def create_or_update_user_label(db: Session, user_id: str, annotation_id: int, label_name: str, label_value: str, label_comment: Optional[str] = None): # user_id to str
     entry = (
         db.query(UserAnnotationLabel)
-        .filter_by(user_id=user_id, annotation_id=annotation_id)
+        .filter_by(user_id=user_id, annotation_id=annotation_id, label_name=label_name) # Query by label_name
         .first()
     )
     now = datetime.datetime.utcnow()
     if entry:
-        if entry.label != label:
-            entry.label = label
+        if entry.label_value != label_value or entry.label_comment != label_comment:
+            entry.label_value = label_value
+            entry.label_comment = label_comment
             entry.updated_at = now
             db.commit()
             db.refresh(entry)
     else:
         entry = UserAnnotationLabel(
-            user_id=user_id, annotation_id=annotation_id, label=label, created_at=now, updated_at=now
+            user_id=user_id, 
+            annotation_id=annotation_id, 
+            label_name=label_name,
+            label_value=label_value, 
+            label_comment=label_comment,
+            created_at=now, 
+            updated_at=now
         )
         db.add(entry)
         db.commit()
         db.refresh(entry)
     return entry
 
-def get_user_label(db: Session, user_id: int, annotation_id: int):
+
+def get_user_label_by_name(db: Session, user_id: str, annotation_id: int, label_name: str): # user_id to str
     return (
         db.query(UserAnnotationLabel)
-        .filter_by(user_id=user_id, annotation_id=annotation_id)
+        .filter_by(user_id=user_id, annotation_id=annotation_id, label_name=label_name)
         .first()
     )
 
@@ -220,57 +229,50 @@ def get_next_unlabeled_annotation(db: Session, user_id: int, annotation_file_id:
     )
 
 # --- High-level: Mark label and update progress ---
-def label_annotation_and_update_progress(db: Session, user_id: int, annotation_id: int, label: str):
-    # annotation_id is AnnotationData.id
-    label_entry = create_or_update_user_label(db, user_id, annotation_id, label)
+def label_annotation_and_update_progress(db: Session, user_id: str, annotation_id: int, label_name: str, label_value: str, label_comment: Optional[str] = None): # user_id to str, added label_name, value, comment
+    label_entry = create_or_update_user_label(db, user_id, annotation_id, label_name, label_value, label_comment)
     
-    # Get annotation_file_id from the annotation_id
     annotation = db.query(AnnotationData.annotation_file_id).filter_by(id=annotation_id).scalar_one_or_none()
-    if annotation_file_id := annotation: # Check if not None
-        update_file_progress(db, user_id, annotation_file_id) # Mypy might complain if annotation_file_id could be None
+    if annotation_file_id := annotation:
+        update_file_progress(db, user_id, annotation_file_id)
     else:
         print(f"Could not find annotation_file_id for annotation_id {annotation_id} to update progress.")
-
     return label_entry
 
 # --- Progress summary for a slide (aggregates files) ---
-def get_slide_progress_summary_for_user(db: Session, user_id: int, slide_internal_id: int, required_only: bool = False):
-    """
-    Calculates overall slide progress for a user based on 'required' AnnotationFiles.
-    Returns:
-        - average_completeness (float): Average percentage across required files.
-        - all_required_completed (bool): True if all required files are 100% complete.
-        - details (list): List of dicts with progress for each required file.
-    """
+def get_slide_progress_summary_for_user(db: Session, user_id: str, slide_internal_id: int, required_only: bool = False): # user_id to str
+    # ... (rest of the function, ensure internal calls to get_or_create_file_progress use matching user_id type)
     required_files = get_annotation_files_for_slide(db, slide_internal_id, required_only=True)
     
-    if not required_files and required_only: # If we only care about required files and there are none defined as such
-        return 0.0, True, [] # No required work, so it's "complete" in a vacuum, or 0% if you prefer. Let's say 0% and not all_complete.
-                                   # This depends on desired behavior if no structures are marked as required.
-                                   # Assuming if required_only=True and no files are required, slide is not considered complete by default.
-                                   # If required_only=False, it calculates for all files.
+    if not required_files and required_only:
+        return 0.0, False, [] 
 
-    if not required_files: # No annotation files at all for this slide (required or not)
-        return 0.0, True, [] # Or False if empty means not complete
+    if not required_files and not required_only: # No annotation files at all for this slide
+        files_to_check_for_empty = get_annotation_files_for_slide(db, slide_internal_id, required_only=False)
+        if not files_to_check_for_empty:
+            return 0.0, False, []
+
 
     total_percent_sum = 0
-    num_required_files_processed = 0
+    num_files_processed = 0 # Renamed for clarity
     all_completed_flag = True
     progress_details = []
 
     files_to_check = required_files if required_only and required_files else get_annotation_files_for_slide(db, slide_internal_id, required_only=False)
-    if not files_to_check: # No files to check implies 0% completion
+    
+    if not files_to_check: # Still no files after attempting to get all
         return 0.0, False, []
 
 
     for f in files_to_check:
-        if required_only and not f.is_required_for_completeness: # Should not happen if required_files query is correct
-            continue
+        # This condition is only relevant if required_only was true and files_to_check became required_files
+        # if required_only and not f.is_required_for_completeness: # This should ideally not be hit if logic is correct
+        #     continue
 
-        prog_entry = get_or_create_file_progress(db, user_id, f.id)
+        prog_entry = get_or_create_file_progress(db, user_id, f.id) # user_id type must match
         
         total_percent_sum += prog_entry.percent_complete
-        num_required_files_processed += 1
+        num_files_processed += 1 # Use this counter
         if prog_entry.status != ActivityStatus.COMPLETED:
             all_completed_flag = False
         
@@ -278,14 +280,12 @@ def get_slide_progress_summary_for_user(db: Session, user_id: int, slide_interna
             "file_type": f.file_type,
             "annotation_file_id": f.id,
             "percent_complete": prog_entry.percent_complete,
-            "status": prog_entry.status.value if prog_entry else ActivityStatus.PENDING.value, # Ensure prog_entry exists
+            "status": prog_entry.status.value, # prog_entry is guaranteed by get_or_create
             "is_required": f.is_required_for_completeness
         })
 
-    if num_required_files_processed == 0: # No required files had progress entries or no required files exist
-        # This case depends on interpretation: if no required work, is it 100% complete or 0%?
-        # Let's assume if no required files are defined and we ask for required_only, it means nothing to do, so 0% to show up.
-        return 0.0, False, [] 
+    if num_files_processed == 0: 
+        return 0.0, False, [] # If no files were processed (e.g. all filtered out, or no progress entries made)
 
-    average_completeness = total_percent_sum / num_required_files_processed
+    average_completeness = total_percent_sum / num_files_processed
     return average_completeness, all_completed_flag, progress_details
