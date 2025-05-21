@@ -70,6 +70,44 @@ def get_annotations_for_file(db: Session, annotation_file_id: int):
 def get_annotation_by_idx(db: Session, annotation_file_id: int, annotation_idx: str):
     return db.query(AnnotationData).filter_by(annotation_file_id=annotation_file_id, annotation_idx=annotation_idx).first()
 
+def populate_annotations_from_file(db: Session, annotation_file_id: int, annotation_definitions: list[dict]):
+    """
+    Populates AnnotationData from a list of definitions. Each definition is a dict
+    expected to have 'annotation_idx' and 'bbox' (as a string).
+    Avoids creating duplicates based on annotation_idx for the given annotation_file_id.
+    Returns a list of created or existing AnnotationData objects.
+    """
+    existing_idxs = {
+        ad.annotation_idx for ad in 
+        db.query(AnnotationData.annotation_idx).filter_by(annotation_file_id=annotation_file_id).all()
+    }
+    
+    new_annotations = []
+    created_count = 0
+    for entry in annotation_definitions:
+        idx = entry.get("annotation_idx")
+        bbox_str = entry.get("bbox")
+        if not idx:
+            print(f"Skipping annotation entry due to missing 'annotation_idx' for file_id {annotation_file_id}")
+            continue
+            
+        if idx not in existing_idxs:
+            annotation = AnnotationData(
+                annotation_file_id=annotation_file_id,
+                annotation_idx=idx,
+                bbox=bbox_str
+            )
+            new_annotations.append(annotation)
+            existing_idxs.add(idx) # Add to set to prevent duplicates from same input list
+            created_count +=1
+
+    if new_annotations:
+        db.add_all(new_annotations)
+        db.commit()
+        print(f"Added {created_count} new annotations for file_id {annotation_file_id}.")
+    
+    # Return all annotations for the file, including newly created and pre-existing ones
+    return db.query(AnnotationData).filter_by(annotation_file_id=annotation_file_id).all()
 
 # --- UserAnnotationLabel CRUD ---
 def get_user_labels_for_file(db: Session, user_id: int, annotation_file_id: int):
