@@ -25,7 +25,6 @@ import nest_asyncio
 from pathlib import Path
 import dash_uploader as du
 
-from fusion_tools.database.core import initialize_database
 
 class Visualization:
     """General holder class used for initialization. Components added after initialization.
@@ -937,9 +936,6 @@ class Visualization:
 
             if not self.local_tile_server is None:
                 app.include_router(self.local_tile_server.router)
-            print("Initializing Database")
-            initialize_database()
-            print("Initialized Database")
             app.mount(path='/',app=WSGIMiddleware(self.viewer_app.server))
             uvicorn.run(app,host=self.app_options['host'],port=self.app_options['port'])
 

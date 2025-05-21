@@ -8,3 +8,5 @@ tests/outputs/*
 src/*/__pycache__/*
 venv/*
 build/*
+*.egg-info/
+

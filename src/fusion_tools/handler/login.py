@@ -421,6 +421,7 @@ class DSALoginComponent(DSATool):
             )
             
             if not type(new_login_output)==str:
+                print(f"Login successful for user {username_input_val}")
                 loaded_session_data['current_user'] = new_login_output
                 current_user_display = f"Welcome, {new_login_output['login']}"
                 current_user_details = loaded_session_data["current_user"]
@@ -428,10 +429,11 @@ class DSALoginComponent(DSATool):
                 try:
                     username_to_store = current_user_details['login']
                     email_to_store = current_user_details['email']
+                    user_id = current_user_details['_id']
 
                     with get_db() as db:
-                        db_user = get_or_create_user(db,username=username_to_store, email=email_to_store)
-                        print(f"User {db_user.username} has been added to the database {db_user.id}")
+                        db_user = get_or_create_user(db,id=user_id,username=username_to_store, email=email_to_store)
+                        
                 except Exception as e:
                     print("Database Operation failed!! {e}")
 
@@ -462,7 +464,7 @@ class DSALoginComponent(DSATool):
         email_input_val = get_pattern_matching_value(email_input)
 
         username_error_div = []
-        if username_input_val is None or username_input_val=='':
+        if username_input_val is None or username_input_val=='': 
             username_error_div = dbc.Alert('Make sure to enter a username!',color = 'danger')
         
         password_error_div = []
@@ -473,29 +475,42 @@ class DSALoginComponent(DSATool):
         if email_input_val is None or email_input_val == '':
             email_error_div = dbc.Alert('Make sure to enter a valid email address! (And not the same as any other account)',color = 'danger')
 
-        if not any([i is None or i =='' for i in [firstname_input,lastname_input,email_input,username_input,password_input]]):
+       
+        if not any([
+            val is None or val == '' for val in 
+            [firstname_input_val, lastname_input_val, email_input_val, username_input_val, password_input_val]
+        ]) and not username_error_div and not password_error_div and not email_error_div: 
             create_user_output = self.handler.create_new_user(
-                username = username_input,
-                password = password_input,
-                email = email_input,
-                firstName = firstname_input,
-                lastName= lastname_input
+                username = username_input_val,
+                password = password_input_val,
+                email = email_input_val,
+                firstName = firstname_input_val,
+                lastName= lastname_input_val
             )
-            if create_user_output:
-                session_data['current_user'] = create_user_output
-                current_user = f"Welcome, {create_user_output['login']}"
-                session_data = json.dumps(session_data)
-                create_account_error_div = []
+            if create_user_output and not isinstance(create_user_output, str):
+                loaded_session_data['current_user'] = create_user_output
+                current_user_details = loaded_session_data['current_user']
+                current_user_display = f"Welcome, {current_user_details['login']}"
+                
+                try:
+                    username_to_store = current_user_details['login']
+                    email_to_store = current_user_details.get('email') 
+                    user_id = current_user_details['_id']
+                    with get_db() as db:
+                        db_user = get_or_create_user(db, id=user_id, username=username_to_store, email=email_to_store)
+                        
+                except Exception as e:
+                    print(f"Database operation failed for new user '{username_to_store}': {e}", exc_info=True)
+
+                updated_session_data_str = json.dumps(loaded_session_data)
+                
             else:
-                session_data = no_update
-                current_user = no_update
-                create_account_error_div = dbc.Alert(f'Error creating account with username: {username_input}',color = 'danger')
-        else:
-            session_data = no_update
-            current_user = no_update
-            create_account_error_div = []
+                error_msg = create_user_output if isinstance(create_user_output, str) else f"Error creating account with username: {username_input_val}"
+                create_account_error_div = dbc.Alert(error_msg, color='danger')
+        else: 
+            pass
         
-        return [username_error_div],[password_error_div],[email_error_div], [create_account_error_div], [current_user],session_data
+        return [email_error_div], [username_error_div], [password_error_div], [create_account_error_div], [current_user_display], updated_session_data_str
         
 
 

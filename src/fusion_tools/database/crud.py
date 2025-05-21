@@ -7,10 +7,10 @@ from .models import (
 import datetime
 
 # --- User CRUD ---
-def get_or_create_user(db: Session, username: str, email: str = None):
+def get_or_create_user(db: Session, id:str, username: str, email: str = None):
     user = db.query(User).filter_by(username=username).first()
     if not user:
-        user = User(username=username, email=email)
+        user = User(id= id, username=username, email=email)
         db.add(user)
         db.commit()
         db.refresh(user)
@@ -20,15 +20,48 @@ def get_or_create_user(db: Session, username: str, email: str = None):
 def get_slides(db: Session):
     return db.query(Slide).all()
 
-def get_slide_by_id(db: Session, slide_id: str):
-    return db.query(Slide).filter_by(slide_id=slide_id).first()
+def get_slide_by_internal_id(db: Session, internal_slide_id: int):
+    return db.query(Slide).filter(Slide.id == internal_slide_id).first()
+
+def get_slide_by_api_id(db: Session, api_slide_id: str):
+    return db.query(Slide).filter(Slide.slide_id == api_slide_id).first()
+
+def get_or_create_slide(db: Session, api_slide_id: str, display_name: str = None):
+    slide = get_slide_by_api_id(db, api_slide_id)
+    if not slide:
+        slide = Slide(slide_id=api_slide_id, display_name=display_name if display_name else api_slide_id)
+        db.add(slide)
+        db.commit()
+        db.refresh(slide)
+    return slide
 
 # --- AnnotationFile CRUD ---
-def get_annotation_files_for_slide(db: Session, slide_id: int):
-    return db.query(AnnotationFile).filter_by(slide_id=slide_id).all()
+def get_annotation_files_for_slide(db: Session, slide_internal_id: int, required_only: bool = False):
+    query = db.query(AnnotationFile).filter(AnnotationFile.slide_id == slide_internal_id)
+    if required_only:
+        query = query.filter(AnnotationFile.is_required_for_completeness == True)
+    return query.all()
 
-def get_annotation_file_by_type(db: Session, slide_id: int, file_type: str):
-    return db.query(AnnotationFile).filter_by(slide_id=slide_id, file_type=file_type).first()
+def get_annotation_file_by_type(db: Session, slide_internal_id: int, file_type: str):
+    return db.query(AnnotationFile).filter_by(slide_id=slide_internal_id, file_type=file_type).first()
+
+def get_or_create_annotation_file(db: Session, slide_internal_id: int, file_type: str, file_path: str = None, is_required: bool = False):
+    annotation_file = get_annotation_file_by_type(db, slide_internal_id, file_type)
+    if not annotation_file:
+        annotation_file = AnnotationFile(
+            slide_id=slide_internal_id,
+            file_type=file_type,
+            file_path=file_path,
+            is_required_for_completeness=is_required
+        )
+        db.add(annotation_file)
+        db.commit()
+        db.refresh(annotation_file)
+    elif file_path and annotation_file.file_path != file_path : # Update file_path if changed
+        annotation_file.file_path = file_path
+        db.commit()
+        db.refresh(annotation_file)
+    return annotation_file
 
 # --- AnnotationData CRUD ---
 def get_annotations_for_file(db: Session, annotation_file_id: int):
@@ -36,6 +69,7 @@ def get_annotations_for_file(db: Session, annotation_file_id: int):
 
 def get_annotation_by_idx(db: Session, annotation_file_id: int, annotation_idx: str):
     return db.query(AnnotationData).filter_by(annotation_file_id=annotation_file_id, annotation_idx=annotation_idx).first()
+
 
 # --- UserAnnotationLabel CRUD ---
 def get_user_labels_for_file(db: Session, user_id: int, annotation_file_id: int):

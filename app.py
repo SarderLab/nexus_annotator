@@ -5,7 +5,7 @@ from src.fusion_tools.visualization import Visualization
 from src.fusion_tools.handler.dsa_handler import DSAHandler
 from src.fusion_tools.components import SlideMap, FeatureAnnotation
 from src.fusion_tools.fusion.data_types import get_upload_types
-
+from src.fusion_tools.database.core import initialize_database
 
 
 dn_feature_schema = {
@@ -102,11 +102,11 @@ dn_feature_schema = {
 }
 
 def main():
-
+    os.environ["DATABASE_PATH"] = os.getcwd()
     dsa_path = 'https://athena.rc.ufl.edu/api/v1'
     app_port = 8050 
     dsa_handler = DSAHandler(girderApiUrl=dsa_path)
-    
+    initialize_database()
     vis_session = Visualization(
         linkage = 'page',
         components = {
@@ -121,7 +121,7 @@ def main():
                                     preset_schema=dn_feature_schema,
                                     annotations_format='rgb',
                                     labels_format='json',
-                                    storage_path='/Users/leadshot/Desktop/fusion-tools/',
+                                    storage_path=os.getcwd(),
                                 )
                             ],
                             {'width': '8'}

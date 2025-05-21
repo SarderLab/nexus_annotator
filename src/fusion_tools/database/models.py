@@ -4,7 +4,7 @@ from typing import Optional
 
 from sqlalchemy import (
     Column, Integer, String, DateTime, ForeignKey, Enum as SQLEnum,
-    UniqueConstraint
+    UniqueConstraint, Boolean
 )
 from sqlalchemy.orm import relationship, declarative_base, Mapped, mapped_column
 
@@ -17,7 +17,7 @@ class ActivityStatus(enum.Enum):
 
 class User(Base):
     __tablename__ = "users"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[str] = mapped_column(String, primary_key=True, autoincrement=False)
     username: Mapped[str] = mapped_column(String, index=True, nullable=False)
     email: Mapped[Optional[str]] = mapped_column(String, unique=True, index=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
@@ -25,7 +25,7 @@ class User(Base):
     annotation_labels = relationship("UserAnnotationLabel", back_populates="user", cascade="all, delete-orphan")
     progress = relationship("UserFileProgress", back_populates="user", cascade="all, delete-orphan")
 
-class Slide(Base):
+class Slide(Base): # Slide represents a whole slide, which can have multiple annotation 
     __tablename__ = "slides"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     slide_id: Mapped[str] = mapped_column(String, unique=True, index=True)   # e.g., filename or UUID
@@ -39,10 +39,11 @@ class AnnotationFile(Base):
     slide_id: Mapped[int] = mapped_column(ForeignKey("slides.id"), nullable=False)
     file_type: Mapped[str] = mapped_column(String, nullable=False)           # e.g., 'glomerulus', 'tubule'
     file_path: Mapped[str] = mapped_column(String, nullable=True)            # optional, where the file is on disk/api
+    is_required_for_completeness: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     slide = relationship("Slide", back_populates="annotation_files")
     annotations = relationship("AnnotationData", back_populates="annotation_file", cascade="all, delete-orphan")
-
+    user_progress_entries = relationship("UserFileProgress", back_populates="annotation_file", cascade="all, delete-orphan")
     __table_args__ = (UniqueConstraint("slide_id", "file_type", name="_slide_file_uc"),)
 
 class AnnotationData(Base):
@@ -60,7 +61,7 @@ class AnnotationData(Base):
 class UserAnnotationLabel(Base):
     __tablename__ = "user_annotation_labels"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
     annotation_id: Mapped[int] = mapped_column(ForeignKey("annotation_data.id"), nullable=False)
     label: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
@@ -74,13 +75,13 @@ class UserAnnotationLabel(Base):
 class UserFileProgress(Base):
     __tablename__ = "user_file_progress"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
     annotation_file_id: Mapped[int] = mapped_column(ForeignKey("annotation_files.id"), nullable=False)
     status: Mapped[ActivityStatus] = mapped_column(SQLEnum(ActivityStatus), nullable=False, default=ActivityStatus.PENDING)
     percent_complete: Mapped[float] = mapped_column(Integer, default=0)  # store as int or float (0-100)
     last_updated: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     user = relationship("User", back_populates="progress")
-    # Optionally, annotation_file = relationship("AnnotationFile")
+    annotation_file = relationship("AnnotationFile", back_populates="user_progress_entries")
 
     __table_args__ = (UniqueConstraint("user_id", "annotation_file_id", name="_user_file_progress_uc"),)

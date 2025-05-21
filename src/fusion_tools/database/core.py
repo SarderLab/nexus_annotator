@@ -66,7 +66,7 @@ except Exception as exc:
     logger.critical("Failed to create SQLAlchemy engine.", exc_info=True)
     raise
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(bind=engine)
 
 def initialize_database() -> None:
     """Create all database tables if they do not exist.
@@ -76,7 +76,9 @@ def initialize_database() -> None:
     """
     try:
         logger.info("Initializing database schema at %s", _DATABASE_URL)
+        Base.metadata.drop_all(bind=engine)  # Drop all tables if they exist
         Base.metadata.create_all(bind=engine)
+        logger.info(f"engine {engine.url}")
         logger.info("Database schema initialized successfully.")
     except Exception as exc:
         logger.exception("Failed to initialize database schema.")
