@@ -44,6 +44,7 @@ from fusion_tools import Tool
 
 #Always required structure types - 
 ALWAYS_REQUIRED_STRUCTURE_TYPES = ['non_globally_sclerotic_glomeruli', 'globally_sclerotic_glomeruli']
+GUEST_USER_ID = "0000000000"
 
 class FeatureAnnotation(Tool):
     """Enables annotation (drawing) on top of structures in the SlideMap using a separate interface.
@@ -93,12 +94,7 @@ class FeatureAnnotation(Tool):
     def _generate_input_component(self, label_item, index):
         """Helper function to generate the appropriate Dash component based on label_item['input_type']"""
         
-        #Fallback
-        if not hasattr(self, 'component_prefix'):
-            self.component_prefix = "feature_annotation_tool" 
-            
-        
-        input_id = {'type': f'{self.component_prefix}-label-input-value', 'index': index}
+        input_id = {'type': f'{self.component_prefix}-label-input-div', 'index': index}
         default_value = label_item.get('default')
 
         if label_item['type'] == 'radio':
@@ -156,16 +152,10 @@ class FeatureAnnotation(Tool):
 
     def update_layout(self, session_data:dict, use_prefix:bool):
         """Generating layout for component
-        """
-
-         # Ensure component_prefix is available
-        if not hasattr(self, 'component_prefix'):
-             # Fallback or raise error, for now, using a default if not set by load()
-            self.component_prefix = "feature_annotation_tool"
-            print(f"Warning: component_prefix not set, using default: {self.component_prefix}")
+        """ 
             
-        
         feature_annotation_session_data = session_data.get('data',{}).get('feature-annotation')
+        self.session_data = session_data
         
         current_classes_from_data = []
         current_labels_from_data = [] # This will hold structured labels
@@ -415,16 +405,16 @@ class FeatureAnnotation(Tool):
                                                     n_clicks = 0,
                                                     id = {'type': 'feature-annotation-previous','index': 0}
                                                 )
-                                            ],md = 4),
-                                            dbc.Col([
-                                                dbc.Button(
-                                                    'Save',
-                                                    className = 'd-grid col-12 mx-auto',
-                                                    n_clicks = 0,
-                                                    color = 'success',
-                                                    id = {'type':'feature-annotation-save','index': 0}
-                                                )
-                                            ],md = 4),
+                                            ],md = 6),
+                                            # dbc.Col([
+                                            #     dbc.Button(
+                                            #         'Save',
+                                            #         className = 'd-grid col-12 mx-auto',
+                                            #         n_clicks = 0,
+                                            #         color = 'success',
+                                            #         id = {'type':'feature-annotation-save','index': 0}
+                                            #     )
+                                            # ],md = 4),
                                             dbc.Col([
                                                 dbc.Button(
                                                     'Next',
@@ -432,7 +422,7 @@ class FeatureAnnotation(Tool):
                                                     n_clicks = 0,
                                                     id = {'type': 'feature-annotation-next','index': 0}
                                                 )
-                                            ],md = 4)
+                                            ],md = 6)
                                         ])
                                     )
                                 ],
@@ -487,7 +477,7 @@ class FeatureAnnotation(Tool):
         return layout
 
     def gen_layout(self, session_data:dict):
-
+        
         self.blueprint.layout = self.update_layout(session_data,use_prefix=False)
 
     def get_callbacks(self):
@@ -532,7 +522,6 @@ class FeatureAnnotation(Tool):
             prevent_initial_call=True
         )(self.update_structure_options)
 
-        # Updating which structure is in the annotation figure
         self.blueprint.callback(
             [
                 Input({'type': 'feature-annotation-structure-drop','index': ALL},'value'),
@@ -541,20 +530,24 @@ class FeatureAnnotation(Tool):
             ],
             [
                 Output({'type': 'feature-annotation-figure','index': ALL},'figure'),
-                Output({'type': 'feature-annotation-save','index':ALL},'children'),
                 Output({'type':'feature-annotation-current-structures','index': ALL},'data'),
-              #  Output({'type': 'feature-annotation-label-text','index': ALL},'value'),
                 Output({'type': 'feature-annotation-progress','index': ALL},'value'),
                 Output({'type': 'feature-annotation-progress','index': ALL},'label'),
-                Output({'type': 'map-marker-div','index': ALL},'children')
+                Output({'type': 'map-marker-div','index': ALL},'children'),
+                Output({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'value'),
+                Output({'type': f'{self.component_prefix}-label-comment-box', 'index': ALL}, 'value'),
             ],
             [
                 State({'type': 'feature-annotation-current-structures','index': ALL},'data'),
                 State({'type': 'feature-annotation-class-drop','index':ALL},'value'),
-                State({'type':'feature-annotation-slide-information','index':ALL},'data')
+                State({'type':'feature-annotation-slide-information','index':ALL},'data'),
+                # State({'type': 'feature-annotation-label-drop', 'index': ALL}, 'value'),
+                State({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'value'),
+                State({'type': f'{self.component_prefix}-label-comment-box', 'index': ALL}, 'value'),
             ],
             prevent_initial_call=True
         )(self.update_structure)
+
 
         # Adding a new class/label to the available set of classes/labels
         self.blueprint.callback(
@@ -601,23 +594,23 @@ class FeatureAnnotation(Tool):
         )(self.add_new_class_label)
 
         # Saving the current annotation mask:
-        self.blueprint.callback(
-            [
-                Input({'type': 'feature-annotation-save','index': ALL},'n_clicks')
-            ],
-            [
-                Output({'type': 'feature-annotation-save','index': ALL},'children')
-            ],
-            [
-                State({'type': 'feature-annotation-figure','index': ALL},'figure'),
-                State({'type': 'feature-annotation-class-drop','index': ALL},'options'),
-                State({'type': 'feature-annotation-current-structures','index': ALL},'data'),
-                State({'type': 'feature-annotation-structure-drop','index': ALL},'value'),
-                State({'type':'feature-annotation-slide-information','index':ALL},'data'),
-                State({'type':'feature-annotation-bbox-padding','index': ALL},'value')
-            ],
-            prevent_initial_call=True
-        )(self.save_annotation)
+        # self.blueprint.callback(
+        #     [
+        #         Input({'type': 'feature-annotation-save','index': ALL},'n_clicks')
+        #     ],
+        #     [
+        #         Output({'type': 'feature-annotation-save','index': ALL},'children')
+        #     ],
+        #     [
+        #         State({'type': 'feature-annotation-figure','index': ALL},'figure'),
+        #         State({'type': 'feature-annotation-class-drop','index': ALL},'options'),
+        #         State({'type': 'feature-annotation-current-structures','index': ALL},'data'),
+        #         State({'type': 'feature-annotation-structure-drop','index': ALL},'value'),
+        #         State({'type':'feature-annotation-slide-information','index':ALL},'data'),
+        #         State({'type':'feature-annotation-bbox-padding','index': ALL},'value')
+        #     ],
+        #     prevent_initial_call=True
+        # )(self.save_annotation)
 
         # Callback for adding label option
         self.blueprint.callback(
@@ -633,7 +626,7 @@ class FeatureAnnotation(Tool):
         
         # Callback to handle reset button for individual structured labels
         self.blueprint.callback(
-            Output({'type': f'{self.component_prefix}-label-input-value', 'index': MATCH}, 'value'),
+            Output({'type': f'{self.component_prefix}-label-input-div', 'index': MATCH}, 'value'),
             Input({'type': f'{self.component_prefix}-label-reset', 'index': MATCH}, 'n_clicks'),
             State({'type': f'{self.component_prefix}-structured-labels-defs-store', 'index': 0}, 'data'),
             State({'type': f'{self.component_prefix}-label-reset', 'index': MATCH}, 'id'), # To get the MATCHed index easily
@@ -652,8 +645,8 @@ class FeatureAnnotation(Tool):
         self.blueprint.callback(
             Output(f'{self.component_prefix}-save-all-status', 'children'), 
             Input({'type': f'{self.component_prefix}-feature-annotation-save-all-labels', 'index': 0}, 'n_clicks'),
-            [State({'type': f'{self.component_prefix}-label-input-value', 'index': ALL}, 'value'),
-             State({'type': f'{self.component_prefix}-label-input-value', 'index': ALL}, 'id'), 
+            [State({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'div'),
+             State({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'id'), 
              State({'type': f'{self.component_prefix}-label-comment-box', 'index': ALL}, 'value'),
              State({'type': f'{self.component_prefix}-structured-labels-defs-store', 'index': 0}, 'data'),
              State({'type': 'feature-annotation-current-structures', 'index': 0}, 'data'),
@@ -964,7 +957,7 @@ class FeatureAnnotation(Tool):
             raise exceptions.PreventUpdate
 
         get_viewport = get_pattern_matching_value(get_viewport)
-        structure_options = overlay_names
+        structure_options = [name for name in overlay_names if name in ALWAYS_REQUIRED_STRUCTURE_TYPES]
         structure_bboxes = {}
         if get_viewport:
             slide_map_bounds = get_pattern_matching_value(slide_bounds)
@@ -1079,23 +1072,45 @@ class FeatureAnnotation(Tool):
         else:
             return dbc.Alert("No labels were actively saved (perhaps no values entered or no matching inputs found).", color="info", dismissable=True, duration=4000)
     
-    def update_structure(self, structure_drop_value, prev_click, next_click, current_structure_data, current_class_value, slide_information):
-        """Updating the current structure figure based on selections
-
-        :param structure_drop_value: Structure name selected from the structure dropdown menu
-        :type structure_drop_value: list
-        :param prev_click: Previous button clicked
-        :type prev_click: list
-        :param next_click: Next button clicked
-        :type next_click: list
-        :param current_structure_data: Current structure bounding boxes and indices
-        :type current_structure_data: list
-        :param current_class_value: Current class value from the class dropdown menu
-        :type current_class_value: list
-        :return: Updated figure containing new structure, updated structure index if previous or next button is clicked, cleared label text
-        :rtype: tuple
-        """
-
+    
+    def update_structure(
+        self,
+        structure_drop_value,        # [name of annotation structure]
+        prev_click,                  # [prev_click_0, prev_click_1, ...]
+        next_click,                  # [next_click_0, next_click_1, ...]
+        current_structure_data,      # dict of bbox values for selected structure]
+        current_class_value,         # Not important right now. 
+        slide_information,           # [json_slide0, json_slide1, ...]           
+        label_value_value,           # [label_val0, label_val1, ...]
+        label_comment_value,         # [label_comment0, label_comment1, ...]
+    ):
+        
+        #Temporary function until I figure out to add item_id into the information store.
+        def extract_itemid_from_regions_url(url:str) -> str:
+            try:
+                parts = url.split('/')
+                item_index = parts.index('item')
+                # The item_id is the part immediately after 'item'
+                if item_index + 1 < len(parts):
+                    return parts[item_index + 1]
+                else:
+                    return None
+            except ValueError:
+                # 'item' not found in the URL
+                return None
+        
+        #If the user is not logged in, add the annotation under guest userid. 
+        try:
+            user_id = self.session_data["current_user"]["_id"] 
+        except KeyError:
+            user_id = GUEST_USER_ID
+        
+                # -- AUTOLOAD all labels for this patch --
+        label_values = label_value_value  
+        label_comments = label_comment_value  
+        autoload_label_values = [""] * len(label_values)
+        autoload_label_comments = [""] * len(label_values)
+        
         if not any([i['value'] for i in ctx.triggered]):
             raise exceptions.PreventUpdate
         
@@ -1103,7 +1118,6 @@ class FeatureAnnotation(Tool):
         current_structure_data = json.loads(get_pattern_matching_value(current_structure_data))
         current_class_value = get_pattern_matching_value(current_class_value)
         slide_information = json.loads(get_pattern_matching_value(slide_information))
-        
         progress_value = 0
         progress_label = '0%'
 
@@ -1197,10 +1211,18 @@ class FeatureAnnotation(Tool):
                 }
             )
         ]
+    
+        return (
+            [image_figure],
+            [json.dumps(current_structure_data)],
+            [progress_value],
+            [progress_label],
+            new_markers_div,
+            autoload_label_values,
+            autoload_label_comments
+        )
 
 
-        #return [image_figure], ['Save'], [json.dumps(current_structure_data)], [new_label_text], [progress_value], [progress_label], new_markers_div
-        return [image_figure], ['Save'], [json.dumps(current_structure_data)], [progress_value], [progress_label], new_markers_div
 
     def get_structure_region(self, structure_bbox:list, slide_information: dict, scale:bool = True):
         """Using the tile server "regions_url" property to pull out a specific region of tissue
@@ -1667,55 +1689,55 @@ class FeatureAnnotation(Tool):
 
         return [add_class_drop_value], [options_div], [add_submit_disabled], [new_class_options], [new_label_options], json.dumps(session_data)
 
-    def save_annotation(self, save_click, current_figure, current_classes, current_structure_data, current_structure, slide_information, bbox_pad):
-        """Saving the current annotation in image format
+    # def save_annotation(self, save_click, current_figure, current_classes, current_structure_data, current_structure, slide_information, bbox_pad):
+    #     """Saving the current annotation in image format
 
-        :param save_click: Save button is clicked
-        :type save_click: list
-        :param current_figure: Figure information which includes current annotated shapes
-        :type current_figure: list
-        :param current_classes: List of classes available for saving
-        :type current_classes: list
-        :param current_structure_data: Bounding boxes for current structure as well as current index
-        :param current_structure_data: list
-        :param current_structure: Currently selected structure
-        :param current_structure: list
-        :param slide_information: Information on the current slide (such as x and y scale)
-        :param slide_information: list
-        :param bbox_pad: Amount of padding applied to image bounding boxes
-        :param bbox_pad: list
-        """
+    #     :param save_click: Save button is clicked
+    #     :type save_click: list
+    #     :param current_figure: Figure information which includes current annotated shapes
+    #     :type current_figure: list
+    #     :param current_classes: List of classes available for saving
+    #     :type current_classes: list
+    #     :param current_structure_data: Bounding boxes for current structure as well as current index
+    #     :param current_structure_data: list
+    #     :param current_structure: Currently selected structure
+    #     :param current_structure: list
+    #     :param slide_information: Information on the current slide (such as x and y scale)
+    #     :param slide_information: list
+    #     :param bbox_pad: Amount of padding applied to image bounding boxes
+    #     :param bbox_pad: list
+    #     """
 
 
-        if not any([i['value'] for i in ctx.triggered]) or current_classes is None:
-            raise exceptions.PreventUpdate
+    #     if not any([i['value'] for i in ctx.triggered]) or current_classes is None:
+    #         raise exceptions.PreventUpdate
 
-        current_classes = get_pattern_matching_value(current_classes)
-        current_structure_data = json.loads(get_pattern_matching_value(current_structure_data))
-        current_structure = get_pattern_matching_value(current_structure)
-        slide_information = json.loads(get_pattern_matching_value(slide_information))
-        bbox_pad = get_pattern_matching_value(bbox_pad)
+    #     current_classes = get_pattern_matching_value(current_classes)
+    #     current_structure_data = json.loads(get_pattern_matching_value(current_structure_data))
+    #     current_structure = get_pattern_matching_value(current_structure)
+    #     slide_information = json.loads(get_pattern_matching_value(slide_information))
+    #     bbox_pad = get_pattern_matching_value(bbox_pad)
 
-        current_shapes = get_pattern_matching_value(current_figure)['layout'].get('shapes')
-        current_lines = get_pattern_matching_value(current_figure)['layout'].get('line')
+    #     current_shapes = get_pattern_matching_value(current_figure)['layout'].get('shapes')
+    #     current_lines = get_pattern_matching_value(current_figure)['layout'].get('line')
 
-        annotations = []
-        if not current_shapes is None:
-            annotations += current_shapes
-        if not current_lines is None:
-            annotations += current_lines
+    #     annotations = []
+    #     if not current_shapes is None:
+    #         annotations += current_shapes
+    #     if not current_lines is None:
+    #         annotations += current_lines
             
-        image_bbox = current_structure_data[current_structure][current_structure_data[f'{current_structure}_index']]
-        # Applying padding
-        image_bbox[0] -= int(bbox_pad/2)
-        image_bbox[1] -= int(bbox_pad/2)
-        image_bbox[2] += int(bbox_pad/2)
-        image_bbox[3] += int(bbox_pad/2)
+    #     image_bbox = current_structure_data[current_structure][current_structure_data[f'{current_structure}_index']]
+    #     # Applying padding
+    #     image_bbox[0] -= int(bbox_pad/2)
+    #     image_bbox[1] -= int(bbox_pad/2)
+    #     image_bbox[2] += int(bbox_pad/2)
+    #     image_bbox[3] += int(bbox_pad/2)
 
-        # Saving annotation to storage_path
-        self.save_mask(annotations, current_classes, image_bbox, slide_information)
+    #     # Saving annotation to storage_path
+    #     self.save_mask(annotations, current_classes, image_bbox, slide_information)
 
-        return ['Saved!']
+    #     return ['Saved!']
 
 
 

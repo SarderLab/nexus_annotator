@@ -410,6 +410,7 @@ class Visualization:
                         'api_url': t.base_url,
                         'tiles_url': t.tiles_url,
                         'regions_url': t.regions_url,
+                        'item_id': t.item_id,
                         'image_metadata_url': t.image_metadata_url,
                         'metadata_url': t.metadata_url,
                         'annotations_url': t.annotations_url,
