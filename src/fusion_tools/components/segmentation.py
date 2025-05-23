@@ -1107,46 +1107,6 @@ class FeatureAnnotation(Tool):
     ):
 
         if not any([i['value'] for i in ctx.triggered]):
-            # structure_drop_value = get_pattern_matching_value(structure_drop_value)
-            
-            # if not structure_drop_value:
-            #     #raise exceptions.PreventUpdate
-            #     # If no structure type is selected (dropdown is cleared)
-            #     empty_figure = go.Figure(layout={'margin': {'l':0,'r':0,'t':0,'b':0}, 
-            #                                     'xaxis': {'showticklabels': False,'showgrid': False, 'zeroline': False}, 
-            #                                     'yaxis': {'showticklabels': False, 'showgrid': False, 'zeroline': False}})
-                
-            #     # Prepare default empty/reset values for all structured label inputs and comments
-            #     reset_label_values = [""] * len(strucured_label_defs)
-            #     reset_label_comments = [""] * len(strucured_label_defs)
-
-            #     if isinstance(strucured_label_defs, list):
-            #         for i, label_def in enumerate(strucured_label_defs):
-            #             default_val = label_def.get('default')
-            #             label_type = label_def.get('type')
-
-            #             if default_val is not None:
-            #                 reset_label_values[i] = default_val
-            #             elif label_type == 'checkbox':
-            #                 reset_label_values[i] = []
-            #             elif label_type == 'radio':
-            #                 # For radio, None is often the 'unselected' state unless a default is specified
-            #                 reset_label_values[i] = None 
-            #             else: # text, textarea
-            #                 reset_label_values[i] = ""
-                        
-            #             reset_label_comments[i] = "" # Always clear comments
-
-            #     return (
-            #         [empty_figure],                                   # Figure
-            #         [json.dumps({})],                                 # Current structures data for the type (now empty)
-            #         [0],                                              # Progress value
-            #         ['0/0 (No structure selected)'],                  # Progress label
-            #         [[]],                                               # Map marker div children
-            #         reset_label_values,                               # Reset label input values
-            #         reset_label_comments,                             # Reset label comment values
-            #         [{'display':'none'}]                              # Save-all-row style
-            #     )
             raise exceptions.PreventUpdate
         
         slide_information = json.loads(get_pattern_matching_value(slide_information))

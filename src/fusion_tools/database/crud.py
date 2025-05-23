@@ -280,9 +280,6 @@ def get_slide_progress_summary_for_user(db: Session, user_id: str, slide_interna
 
 
     for f in files_to_check:
-        # This condition is only relevant if required_only was true and files_to_check became required_files
-        # if required_only and not f.is_required_for_completeness: # This should ideally not be hit if logic is correct
-        #     continue
 
         prog_entry = get_or_create_file_progress(db, user_id, f.id) # user_id type must match
         
