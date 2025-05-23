@@ -38,8 +38,9 @@ from fusion_tools.visualization.vis_utils import get_pattern_matching_value
 from fusion_tools.utils.shapes import find_intersecting, extract_geojson_properties, path_to_mask, process_filters_queries
 from fusion_tools import Tool
 
-#TODO: Need some kind of handler for handling where/how data is stored
-#TODO: Add schema selection for FeatureAnnotation and BulkLabels
+
+from fusion_tools.database.core import get_db
+from fusion_tools.database.crud import *
 
 
 #Always required structure types - 
@@ -541,9 +542,9 @@ class FeatureAnnotation(Tool):
                 State({'type': 'feature-annotation-current-structures','index': ALL},'data'),
                 State({'type': 'feature-annotation-class-drop','index':ALL},'value'),
                 State({'type':'feature-annotation-slide-information','index':ALL},'data'),
-                # State({'type': 'feature-annotation-label-drop', 'index': ALL}, 'value'),
                 State({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'value'),
                 State({'type': f'{self.component_prefix}-label-comment-box', 'index': ALL}, 'value'),
+                State({'type': f'{self.component_prefix}-structured-labels-defs-store', 'index': 0}, 'data')
             ],
             prevent_initial_call=True
         )(self.update_structure)
@@ -1081,147 +1082,280 @@ class FeatureAnnotation(Tool):
         current_structure_data,      # dict of bbox values for selected structure]
         current_class_value,         # Not important right now. 
         slide_information,           # [json_slide0, json_slide1, ...]           
-        label_value_value,           # [label_val0, label_val1, ...]
-        label_comment_value,         # [label_comment0, label_comment1, ...]
+        label_values_from_ui,           # [label_val0, label_val1, ...]
+        label_comments_from_ui, 
+        strucured_label_defs 
     ):
-        
-        #Temporary function until I figure out to add item_id into the information store.
-        def extract_itemid_from_regions_url(url:str) -> str:
-            try:
-                parts = url.split('/')
-                item_index = parts.index('item')
-                # The item_id is the part immediately after 'item'
-                if item_index + 1 < len(parts):
-                    return parts[item_index + 1]
-                else:
-                    return None
-            except ValueError:
-                # 'item' not found in the URL
-                return None
-        
-        #If the user is not logged in, add the annotation under guest userid. 
-        try:
-            user_id = self.session_data["current_user"]["_id"] 
-        except KeyError:
-            user_id = GUEST_USER_ID
-        
-                # -- AUTOLOAD all labels for this patch --
-        label_values = label_value_value  
-        label_comments = label_comment_value  
-        autoload_label_values = [""] * len(label_values)
-        autoload_label_comments = [""] * len(label_values)
-        
+
         if not any([i['value'] for i in ctx.triggered]):
             raise exceptions.PreventUpdate
         
-        structure_drop_value = get_pattern_matching_value(structure_drop_value)
-        current_structure_data = json.loads(get_pattern_matching_value(current_structure_data))
-        current_class_value = get_pattern_matching_value(current_class_value)
         slide_information = json.loads(get_pattern_matching_value(slide_information))
-        progress_value = 0
-        progress_label = '0%'
-
-        structure_names = [i['name'] for i in current_structure_data]
-
-        if structure_drop_value is None or not structure_drop_value in structure_names:
-            raise exceptions.PreventUpdate
-
-        if any([i in ctx.triggered_id['type'] for i in ['feature-annotation-structure-drop','feature-annotation-class-new']]):
-            # Getting a new structure:
-            current_structure_index = current_structure_data[structure_names.index(structure_drop_value)]['index']
-            current_structure_region = current_structure_data[structure_names.index(structure_drop_value)]['bboxes'][current_structure_index]
-
-        elif 'feature-annotation-previous' in ctx.triggered_id['type']:
-            # Going to previous structure
-            current_structure_index = current_structure_data[structure_names.index(structure_drop_value)]['index']
-            if current_structure_index==0:
-                current_structure_index = len(current_structure_data[structure_names.index(structure_drop_value)]['bboxes'])-1
-            else:
-                current_structure_index -= 1
-            
-            current_structure_region = current_structure_data[structure_names.index(structure_drop_value)]['bboxes'][current_structure_index]
-            progress_value = round(100*((current_structure_index+1) / len(current_structure_data[structure_names.index(structure_drop_value)]['bboxes'])))
-            progress_label = f'{progress_value}%'
-
-        elif 'feature-annotation-next' in ctx.triggered_id['type']:
-            # Going to next structure
-            current_structure_index = current_structure_data[structure_names.index(structure_drop_value)]['index']
-            if current_structure_index==len(current_structure_data[structure_names.index(structure_drop_value)]['bboxes'])-1:
-                current_structure_index = 0
-            else:
-                current_structure_index += 1
-
-            current_structure_region = current_structure_data[structure_names.index(structure_drop_value)]['bboxes'][current_structure_index]
-
-            progress_value = round(100*((current_structure_index+1) / len(current_structure_data[structure_names.index(structure_drop_value)]['bboxes'])))
-            progress_label = f'{progress_value}%'
-
-        current_structure_data[structure_names.index(structure_drop_value)]['index'] = current_structure_index
+        current_structure_data = json.loads(get_pattern_matching_value(current_structure_data))
         
-        # Getting the current selected class
-        if not current_class_value is None:
+        strucured_label_defs = strucured_label_defs if isinstance(strucured_label_defs, list) else [strucured_label_defs]
+        
+        num_defined_labels = len(strucured_label_defs)
+        
+        #This needs to be empty strings if we are navigating to a new annotation mask
+        output_autoload_label_values = [""] * num_defined_labels
+        output_autoload_label_comments = [""] * num_defined_labels
+        
+        #Get user_id if user is logged in else track it under guest login
+        try:
+            user_id = self.session_data["current_user"]["_id"]
+        except KeyError:
+            user_id = GUEST_USER_ID
+        
+        structure_drop_value = get_pattern_matching_value(structure_drop_value)
+        if not structure_drop_value:
+            raise exceptions.PreventUpdate
+        
+        structure_names_in_data = [i['name'] for i in current_structure_data]
+        
+        if structure_drop_value not in structure_names_in_data:
+            print(f"Selected structure type {structure_drop_value} not found in current_structure_data name: {structure_names_in_data}")
+            raise exceptions.PreventUpdate
+        
+        #Data for the current selected structure_drop_value
+        current_struct_info = None
+        original_display_index = 0
+        
+        struct_list_idx = structure_names_in_data.index(structure_drop_value)
+        current_struct_info = current_structure_data[struct_list_idx]
+        original_display_index = current_struct_info.get("index", 0)
+        
+        bbox_being_displayed_str = None
+        if current_struct_info and current_struct_info.get('bboxes') and \
+            len(current_struct_info['bboxes']) > original_display_index:
+                bbox_coords = current_struct_info['bboxes'][original_display_index]
+                bbox_being_displayed_str = json.dumps(sorted(bbox_coords))
+        
+        with get_db() as db:
+            regions_url = slide_information.get("regions_url", '')
+            #Itemid is slide_id - unique in each DSA_instance
+            api_slide_id = self.extract_itemid_from_regions_url(regions_url)
+            
+            display_slide_name = slide_information.get('name', 'unknown_slide')
+            
+            db_slide = get_or_create_slide(db, api_slide_id=api_slide_id, display_name=display_slide_name)
+            
+            #__DELETE__
+            print(f"[DEBUG] added slide with slide_id {db_slide.id} - {db_slide.slide_id}")
+            print(f"[DEBUG] Current Annotation Structure {structure_drop_value}")
+            annotation_file_type = structure_drop_value
+            
+            
+            db_annotation_file = get_or_create_annotation_file(db, 
+                                                               slide_internal_id=db_slide.id,
+                                                               file_type=annotation_file_type,
+                                                               is_required=True if annotation_file_type in ALWAYS_REQUIRED_STRUCTURE_TYPES else False
+                                                               )
+            
+            #__DELETE__
+            print(f"[DEBUG] added annotation_file to the database with id {db_annotation_file.id}")
+            
+            if any([i in ctx.triggered_id['type'] for i in ['feature-annotation-previous','feature-annotation-next']]) and bbox_being_displayed_str:
+                # Get/Create AnnotationData for the bbox_being_displayed
+                db_anno_data_to_save = get_annotation_by_idx(db, 
+                                                            annotation_file_id=db_annotation_file.id, 
+                                                            annotation_idx=bbox_being_displayed_str)
+                
+                print(f"[DEBUG] Annotation Record - {db_anno_data_to_save}")
+                #add the bbox entry into the database if it doesn't exist
+                
+                if not db_anno_data_to_save:
+                    created_annotations = populate_annotations_from_file(
+                        db,
+                        annotation_file_id=db_annotation_file.id,
+                        annotation_definitions=[{
+                            "annotation_idx": bbox_being_displayed_str,
+                            "bbox": bbox_being_displayed_str
+                        }]
+                    )
+                    print(f"[DEBUG] - created_annotations = {created_annotations}")
+                
+                    if created_annotations:
+                        db_anno_data_to_save = get_annotation_by_idx(db,
+                                                                    annotation_file_id=db_annotation_file.id,
+                                                                    annotation_idx=bbox_being_displayed_str)
+                        
+                if db_anno_data_to_save:
+                    for i, label_def in enumerate(strucured_label_defs):
+                        label_name = label_def['name']
+                        value_to_save = label_values_from_ui[i] if i < len(label_values_from_ui) else None
+                        comment_to_save = label_comments_from_ui[i] if i < len(label_comments_from_ui) else None
+                        
+                        value_str_to_save = ""
+                        #convert list type value to str for saving
+                        if isinstance(value_to_save, list):
+                            value_str_to_save = json.dumps(value_to_save)
+                        elif value_to_save is not None:
+                            value_str_to_save = str(value_to_save)
+                        else:
+                            #Can change to any other default value in the future here.
+                            pass
+                        
+                        if value_to_save is not None:
+                            create_or_update_user_label(db,
+                                                        user_id=user_id,
+                                                        annotation_id=db_anno_data_to_save.id,
+                                                        label_name=label_name,
+                                                        label_value=value_str_to_save,
+                                                        label_comment=comment_to_save
+                                                        )
+            
+            current_structure_index_for_load = original_display_index #Default to current if not navigating
+            
+            if any([i in ctx.triggered_id['type'] for i in ['feature-annotation-structure-drop']]):
+                # Getting a new structure:
+                current_structure_index_for_load = original_display_index
+
+            elif 'feature-annotation-previous' in ctx.triggered_id['type']:
+                if not current_struct_info or not current_struct_info.get('bboxes'): raise exceptions.PreventUpdate
+                num_bboxes = len(current_struct_info['bboxes'])
+                if num_bboxes == 0: raise exceptions.PreventUpdate
+                current_structure_index_for_load = original_display_index - 1
+                if current_structure_index_for_load < 0:
+                    current_structure_index_for_load = num_bboxes - 1
+            
+            elif 'feature-annotation-next' in ctx.triggered_id['type']:
+                if not current_struct_info or not current_struct_info.get('bboxes'): raise exceptions.PreventUpdate
+                num_bboxes = len(current_struct_info['bboxes'])
+                if num_bboxes == 0: raise exceptions.PreventUpdate
+                current_structure_index_for_load = original_display_index + 1
+                if current_structure_index_for_load >= num_bboxes:
+                    current_structure_index_for_load = 0
+            
+            if current_struct_info:
+                current_struct_info['index'] = current_structure_index_for_load
+                #Assuming it's a list
+                current_structure_data[structure_names_in_data.index(structure_drop_value)] = current_struct_info
+            
+            #Get the bbox coordinates for the structure to load
+            bbox_to_load_coords = None
+            if current_struct_info and current_struct_info.get('bboxes') and \
+                len(current_struct_info['bboxes']) > current_structure_index_for_load:
+                    bbox_to_load_coords = current_struct_info['bboxes'][current_structure_index_for_load]
+            
+            if bbox_to_load_coords is None:
+                #End of Navigation or no bbox of this type
+                print(f"No bbox to load for {structure_drop_value} at index {current_structure_index_for_load}")
+                
+                pass
+            
+            bbox_to_load_str = json.dumps(sorted(bbox_to_load_coords)) if bbox_to_load_coords else None
+            
+            #Load user labels for the bbox region if it exists in DB
+            if bbox_to_load_str:
+                db_anno_data_to_load = get_annotation_by_idx(db,
+                                                             annotation_file_id=db_annotation_file.id,
+                                                             annotation_idx=bbox_to_load_str)
+                
+                #Check If the user annotation exists
+                if db_anno_data_to_load: 
+                    for i, label_def in enumerate(strucured_label_defs):
+                        label_name = label_def['name']
+                        user_label_entry = get_user_label_by_name(db,
+                                                                  user_id=user_id,
+                                                                  annotation_id=db_anno_data_to_load.id,
+                                                                  label_name=label_name)
+                        
+                        #If entry exists - Handle it for UI for different types of input
+                        if user_label_entry:
+                            label_type = label_def.get('type')
+                            if label_type == 'checkbox':
+                                try:
+                                    output_autoload_label_values[i] = json.loads(user_label_entry.label_value)
+                                except json.JSONDecodeError:
+                                    output_autoload_label_values[i] = [] #Default for checkbox
+                            else:
+                                output_autoload_label_values[i] = user_label_entry.label_value
+                            output_autoload_label_comments[i] = user_label_entry.label_comment if user_label_entry.label_comment is not None else ""
+                
+                #No annotation data exists - creating new entry in DB
+                else:
+                    if bbox_to_load_str:
+                        populate_annotations_from_file(db,
+                                                       annotation_file_id=db_annotation_file.id,
+                                                       annotation_definitions=[{
+                                                           "annotation_idx": bbox_to_load_str,
+                                                           "bbox": bbox_to_load_str
+                                                       }])
+                    
+        progress_value = 0
+        progress_label = '0%'        
+
+        if current_struct_info and current_struct_info.get('bboxes') and len(current_struct_info['bboxes']) > 0:
+             num_total_bboxes = len(current_struct_info['bboxes'])
+             progress_value = round(100 * ((current_structure_index_for_load + 1) / num_total_bboxes)) if num_total_bboxes > 0 else 0
+             progress_label = f'{progress_value}%'
+
+
+        image_region, marker_centroid = self.get_structure_region(bbox_to_load_coords if bbox_to_load_coords else [], slide_information) # Pass actual coords
+
+        # Figure Styling
+        current_class_value = get_pattern_matching_value(current_class_value)
+        line_color = 'rgb(0,0,0)'
+        fill_color = 'rgba(0,0,0,0.2)'
+        if current_class_value:
             line_color = current_class_value
             fill_color = current_class_value.replace('(','a(').replace(')',',0.2)')
-        else:
-            line_color = 'rgb(0,0,0)'
-            fill_color = 'rgba(0,0,0,0.2)'
 
-        # Removing old label text
-        new_label_text = []
-
-        # Pulling out the desired region:
-        image_region, marker_centroid = self.get_structure_region(current_structure_region, slide_information)
         image_figure = go.Figure(px.imshow(np.array(image_region)))
         image_figure.update_layout(
-            {
-                'margin': {'l':0,'r':0,'t':0,'b':0},
-                'xaxis':{'showticklabels':False,'showgrid':False},
-                'yaxis':{'showticklabels':False,'showgrid':False},
-                'dragmode':'drawclosedpath',
-                #"shapes":annotations,
-                #"newshape.line.width": line_slide,
-                "newshape.line.color": line_color,
-                "newshape.fillcolor": fill_color
-            }
+            margin={'l':0,'r':0,'t':0,'b':0},
+            xaxis={'showticklabels':False,'showgrid':False},
+            yaxis={'showticklabels':False,'showgrid':False},
+            dragmode='drawclosedpath',
+            newshape_line_color=line_color,
+            newshape_fillcolor=fill_color
         )
 
-        new_markers_div = [
-            dl.GeoJSON(
-                data = {
-                    'type': 'FeatureCollection',
-                    'features': [
-                        {
+        new_markers_div = []
+        if marker_centroid and not (marker_centroid[0] is None or marker_centroid[1] is None) : # Ensure centroid is valid
+            new_markers_div = [
+                dl.GeoJSON(
+                    data = {
+                        'type': 'FeatureCollection',
+                        'features': [{
                             'type': 'Feature',
-                            'geometry': {
-                                'type': 'Point',
-                                'coordinates': marker_centroid
-                            },
-                            'properties': {
-                                'name': 'featureAnnotation Marker',
-                                '_id': uuid.uuid4().hex[:24]
-                            }
-                        }
-                    ]
-                },
-                pointToLayer=self.js_namespace("markerRender"),
-                onEachFeature = self.js_namespace("tooltipMarker"),
-                id = {'type': f'{self.component_prefix}-feature-annotation-markers','index': 0},
-                eventHandlers = {
-                    'dblclick': self.js_namespace('removeMarker')
-                }
-            )
-        ]
-    
+                            'geometry': {'type': 'Point', 'coordinates': marker_centroid},
+                            'properties': {'name': 'featureAnnotation Marker', '_id': uuid.uuid4().hex[:24]}
+                        }]
+                    },
+                    pointToLayer=self.js_namespace("markerRender"),
+                    onEachFeature=self.js_namespace("tooltipMarker"),
+                    id={'type': f'{self.component_prefix}-feature-annotation-markers','index': 0},
+                    eventHandlers={'dblclick': self.js_namespace('removeMarker')}
+                )
+            ]
+        
         return (
             [image_figure],
-            [json.dumps(current_structure_data)],
+            [json.dumps(current_structure_data)], 
             [progress_value],
             [progress_label],
             new_markers_div,
-            autoload_label_values,
-            autoload_label_comments
+            output_autoload_label_values, 
+            output_autoload_label_comments
         )
 
+    #Temporary function until I figure out to add item_id into the information store.
+    def extract_itemid_from_regions_url(self,url:str) -> str:
+        if not url: 
+            return None
+        try:
+            parts = url.split('/')
+            item_index = parts.index('item')
+            # The item_id is the part immediately after 'item'
+            if item_index + 1 < len(parts):
+                return parts[item_index + 1]
+            else:
+                return None
+        except ValueError:
+            # 'item' not found in the URL
+            return None
 
 
     def get_structure_region(self, structure_bbox:list, slide_information: dict, scale:bool = True):
