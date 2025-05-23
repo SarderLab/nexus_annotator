@@ -59,14 +59,6 @@ dn_feature_schema = {
             ]
         },
         {
-            'name': 'Arteriolar Hyalinosis',
-            'type': 'radio',
-            'options': [
-                'Yes',
-                'No'
-            ]
-        },
-        {
             'name': 'Capsular Drops',
             'type': 'radio',
             'options': [
