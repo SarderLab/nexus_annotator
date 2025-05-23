@@ -9,85 +9,157 @@ from src.fusion_tools.database.core import initialize_database
 
 
 dn_feature_schema = {
+    # 'labels':[
+    #     {
+    #         'name': 'Mesangial Expansion',
+    #         'type': 'radio',
+    #         'options': [
+    #             'Yes',
+    #             'No',
+    #         ]
+    #     },
+    #     {
+    #         'name': '+ Nodules',
+    #         'type': 'radio',
+    #         'options': [
+    #             'Yes',
+    #             'No',
+    #         ]
+    #     },
+    #     {
+    #         'name': 'Microaneurysm',
+    #         'type': 'radio',
+    #         'options': [
+    #             'Yes',
+    #             'No',
+    #         ]
+    #     },
+    #     {
+    #         'name': 'Periglomerular Fibrosis',
+    #         'type': 'radio',
+    #         'options': [
+    #             'Yes',
+    #             'No'
+    #         ]
+    #     },
+    #     {
+    #         'name': 'Mesangial Hypercellularity',
+    #         'type': 'radio',
+    #         'options': [
+    #             'Yes',
+    #             'No'
+    #         ]
+    #     },
+    #     {
+    #         'name': 'Glomerular Hylanosis',
+    #         'type': 'radio',
+    #         'options': [
+    #             'Yes',
+    #             'No'
+    #         ]
+    #     },
+    #     {
+    #         'name': 'Capsular Drops',
+    #         'type': 'radio',
+    #         'options': [
+    #             'Yes',
+    #             'No'
+    #         ]
+    #     },
+    #     {
+    #         'name': 'GBM Thickening',
+    #         'type': 'radio',
+    #         'options': [
+    #             'Yes',
+    #             'No'
+    #         ]
+    #     },
+    #     {
+    #         'name': 'Neovascularization',
+    #         'type': 'radio',
+    #         'options': [
+    #             'Yes',
+    #             'No'
+    #         ]
+    #     },
+    #     {
+    #         'name': 'Immune Cells',
+    #         'type': 'radio',
+    #         'options': [
+    #             'Yes',
+    #             'No'
+    #         ]
+    #     }
+    # ]
     'labels':[
         {
             'name': 'Mesangial Expansion',
-            'type': 'radio',
+            'type': 'checkbox',
             'options': [
                 'Yes',
-                'No',
             ]
         },
         {
             'name': '+ Nodules',
-            'type': 'radio',
+            'type': 'checkbox',
             'options': [
                 'Yes',
-                'No',
             ]
         },
         {
             'name': 'Microaneurysm',
-            'type': 'radio',
+            'type': 'checkbox',
             'options': [
                 'Yes',
-                'No',
             ]
         },
         {
             'name': 'Periglomerular Fibrosis',
-            'type': 'radio',
+            'type': 'checkbox',
             'options': [
-                'Yes',
-                'No'
+                'Yes'
             ]
         },
         {
             'name': 'Mesangial Hypercellularity',
-            'type': 'radio',
+            'type': 'checkbox',
             'options': [
-                'Yes',
-                'No'
+                'Yes'
             ]
         },
         {
             'name': 'Glomerular Hylanosis',
-            'type': 'radio',
+            'type': 'checkbox',
             'options': [
-                'Yes',
-                'No'
+                'Yes'
             ]
         },
         {
             'name': 'Capsular Drops',
-            'type': 'radio',
+            'type': 'checkbox',
             'options': [
-                'Yes',
-                'No'
+                'Yes'
             ]
         },
         {
             'name': 'GBM Thickening',
-            'type': 'radio',
+            'type': 'checkbox',
             'options': [
-                'Yes',
-                'No'
+                'Yes'
             ]
         },
         {
             'name': 'Neovascularization',
-            'type': 'radio',
+            'type': 'checkbox',
             'options': [
-                'Yes',
-                'No'
+                'Yes'
             ]
         },
         {
             'name': 'Immune Cells',
-            'type': 'radio',
+            'type': 'checkbox',
             'options': [
-                'Yes',
-                'No'
+                'Yes'
             ]
         }
     ]

@@ -110,7 +110,7 @@ class FeatureAnnotation(Tool):
             return dbc.Checklist(
                 options=[{'label': opt, 'value': opt} for opt in label_item.get('options', [])],
                 value=default_value if isinstance(default_value, list) else [],
-                id=input_id, inline=True
+                id=input_id, inline=True, inputClassName="border border-dark"
             )
         elif label_item['type'] == 'text':
             return dbc.Input(type='text', id=input_id, placeholder=label_item.get('placeholder', 'Enter value...'), value=default_value if default_value is not None else "")
@@ -237,7 +237,7 @@ class FeatureAnnotation(Tool):
                 label_item_component = dbc.Row([
                     dbc.Col([
                         dbc.Label(label_item['name'], style={'fontWeight': 'bold'}),
-                        dbc.Button(html.I(className="fas fa-comment-dots"), id={'type': f'{self.component_prefix}-label-comment-toggle', 'index': i}, color="light", className="ms-2 p-1", size="sm")
+                        dbc.Button(html.I(className="fas fa-comment-dots", style={'color': 'blue'}), id={'type': f'{self.component_prefix}-label-comment-toggle', 'index': i}, color="light", className="ms-2 p-1", size="sm")
                     ], md=5, className="d-flex align-items-center"), # md=5 applies within this specific row
                     dbc.Col([
                         html.Div([
