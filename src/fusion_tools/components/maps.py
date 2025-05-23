@@ -44,7 +44,8 @@ from fusion_tools.utils.shapes import (
 )
 from fusion_tools.visualization.vis_utils import get_pattern_matching_value
 
-
+from fusion_tools.database.core import get_db
+from fusion_tools.database.crud import get_slide_progress_summary_for_user, get_or_create_slide
 
 
 class SlideMap(MapComponent):
@@ -896,17 +897,54 @@ class SlideMap(MapComponent):
         :type new_vis_data: str
         :return: New options for slide dropdown
         :rtype: list
-        """
+        """ 
         new_vis_data = json.loads(new_vis_data)
+        
+        #Get user_id 
+        user_id = new_vis_data.get("current_user", {}).get("_id")
+        print(f"[DEBUG] SlideMap userid - {user_id}")
 
-        new_slide_options = [
-            {
-                'label': i['name'],
-                'value': idx
-            }
-            for idx, i in enumerate(new_vis_data['current'])
-        ]
+        slide_options_with_completeness = []
+        with get_db() as db:
+            for idx, i in enumerate(new_vis_data['current']):
+                completeness = 0
+                if 'api_url' in i:
+                    slide_id = i['tiles_url'].split('/item/')[1].split('/')[0]
+                    db_slide = get_or_create_slide(db, api_slide_id=slide_id, display_name=i['name'])
+                    if user_id and db_slide:
+                        completeness, _, _ = get_slide_progress_summary_for_user(db, user_id, db_slide.id, required_only=True)
+                
+                color = "red"
+                if completeness > 99:
+                    color = "green"
+                if completeness >50:
+                    color = "yellow"
 
+                label = html.Div([
+                    html.Span(i['name'], style={'flexGrow':1}),
+                    html.Div(f"{int(completeness)}%", style={
+                        'backgroundColor': color,
+                        'color': 'black',
+                        'display': 'inline-block',
+                        'padding': '3px',
+                        'marginLeft': '10px',
+                        'borderRadius': '5px',
+                        'width': '50px',
+                        'textAlign': 'center',
+                        'flexShrink': 0
+                    })
+                ], style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'space-between', 'width':'100%'})
+                
+                slide_options_with_completeness.append({
+                    'label': label,
+                    'value': idx,
+                    'completeness': completeness
+                })
+        
+        sorted_slide_options = sorted(slide_options_with_completeness, key=lambda x: x['completeness'])
+        
+        new_slide_options = [{'label': s['label'], 'value': s['value']} for s in sorted_slide_options]
+        print(f"[DEBUG] Returning {len(new_slide_options)} new options for Dropdown")
         return [new_slide_options]
 
     def update_slide(self, slide_selected, vis_data):
@@ -3808,6 +3846,7 @@ class ChannelMixer(MapComponent):
         """
         
         layout = html.Div([
+            
             dbc.Card([
                 dbc.CardBody([
                     dbc.Row([

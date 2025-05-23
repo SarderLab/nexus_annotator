@@ -76,7 +76,6 @@ def initialize_database() -> None:
     """
     try:
         logger.info("Initializing database schema at %s", _DATABASE_URL)
-        Base.metadata.drop_all(bind=engine)  # Drop all tables if they exist
         Base.metadata.create_all(bind=engine)
         logger.info(f"engine {engine.url}")
         logger.info("Database schema initialized successfully.")

@@ -247,7 +247,7 @@ def get_next_unlabeled_annotation(db: Session, user_id: int, annotation_file_id:
 def label_annotation_and_update_progress(db: Session, user_id: str, annotation_id: int, label_name: str, label_value: str, label_comment: Optional[str] = None): # user_id to str, added label_name, value, comment
     label_entry = create_or_update_user_label(db, user_id, annotation_id, label_name, label_value, label_comment)
     
-    annotation = db.query(AnnotationData.annotation_file_id).filter_by(id=annotation_id).scalar_one_or_none()
+    annotation = db.query(AnnotationData.annotation_file_id).filter_by(id=annotation_id).scalar()
     if annotation_file_id := annotation:
         update_file_progress(db, user_id, annotation_file_id)
     else:

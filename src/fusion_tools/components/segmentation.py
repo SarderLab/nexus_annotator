@@ -508,7 +508,9 @@ class FeatureAnnotation(Tool):
             ],
             [
                 Output({'type': 'feature-annotation-slide-information','index':ALL},'data'),
-                Output({'type': 'feature-annotation-figure','index': ALL},'figure')
+                Output({'type': 'feature-annotation-figure','index': ALL},'figure'),
+                #To clear dropdown value 
+                Output({'type': 'feature-annotation-structure-drop', 'index': ALL}, 'value')
             ],
             [
                 State('anchor-vis-store','data')
@@ -814,7 +816,7 @@ class FeatureAnnotation(Tool):
         new_slide_data = json.dumps(new_slide_data)
         new_figure = go.Figure()
 
-        return [new_slide_data], [new_figure]
+        return [new_slide_data], [new_figure], [[]]
     
     def save_label(self, label_name, label_text, image_bbox, slide_information, label_comment=None): # ADDED label_comment
         print(f" save_path is {self.storage_path}")
@@ -1105,6 +1107,46 @@ class FeatureAnnotation(Tool):
     ):
 
         if not any([i['value'] for i in ctx.triggered]):
+            structure_drop_value = get_pattern_matching_value(structure_drop_value)
+            
+            if not structure_drop_value:
+                #raise exceptions.PreventUpdate
+                # If no structure type is selected (dropdown is cleared)
+                empty_figure = go.Figure(layout={'margin': {'l':0,'r':0,'t':0,'b':0}, 
+                                                'xaxis': {'showticklabels': False,'showgrid': False, 'zeroline': False}, 
+                                                'yaxis': {'showticklabels': False, 'showgrid': False, 'zeroline': False}})
+                
+                # Prepare default empty/reset values for all structured label inputs and comments
+                reset_label_values = [""] * len(strucured_label_defs)
+                reset_label_comments = [""] * len(strucured_label_defs)
+
+                if isinstance(strucured_label_defs, list):
+                    for i, label_def in enumerate(strucured_label_defs):
+                        default_val = label_def.get('default')
+                        label_type = label_def.get('type')
+
+                        if default_val is not None:
+                            reset_label_values[i] = default_val
+                        elif label_type == 'checkbox':
+                            reset_label_values[i] = []
+                        elif label_type == 'radio':
+                            # For radio, None is often the 'unselected' state unless a default is specified
+                            reset_label_values[i] = None 
+                        else: # text, textarea
+                            reset_label_values[i] = ""
+                        
+                        reset_label_comments[i] = "" # Always clear comments
+
+                return (
+                    [empty_figure],                                   # Figure
+                    [json.dumps({})],                                 # Current structures data for the type (now empty)
+                    [0],                                              # Progress value
+                    ['0/0 (No structure selected)'],                  # Progress label
+                    [[]],                                               # Map marker div children
+                    reset_label_values,                               # Reset label input values
+                    reset_label_comments,                             # Reset label comment values
+                    [{'display':'none'}]                              # Save-all-row style
+                )
             raise exceptions.PreventUpdate
         
         slide_information = json.loads(get_pattern_matching_value(slide_information))
@@ -1125,8 +1167,45 @@ class FeatureAnnotation(Tool):
             user_id = GUEST_USER_ID
         
         structure_drop_value = get_pattern_matching_value(structure_drop_value)
+        
         if not structure_drop_value:
-            raise exceptions.PreventUpdate
+            #raise exceptions.PreventUpdate
+            # If no structure type is selected (dropdown is cleared)
+            empty_figure = go.Figure(layout={'margin': {'l':0,'r':0,'t':0,'b':0}, 
+                                             'xaxis': {'showticklabels': False,'showgrid': False, 'zeroline': False}, 
+                                             'yaxis': {'showticklabels': False, 'showgrid': False, 'zeroline': False}})
+            
+            # Prepare default empty/reset values for all structured label inputs and comments
+            reset_label_values = [""] * num_defined_labels
+            reset_label_comments = [""] * num_defined_labels
+
+            if isinstance(strucured_label_defs, list):
+                for i, label_def in enumerate(strucured_label_defs):
+                    default_val = label_def.get('default')
+                    label_type = label_def.get('type')
+
+                    if default_val is not None:
+                        reset_label_values[i] = default_val
+                    elif label_type == 'checkbox':
+                        reset_label_values[i] = []
+                    elif label_type == 'radio':
+                        # For radio, None is often the 'unselected' state unless a default is specified
+                        reset_label_values[i] = None 
+                    else: # text, textarea
+                        reset_label_values[i] = ""
+                    
+                    reset_label_comments[i] = "" # Always clear comments
+
+            return (
+                [empty_figure],                                   # Figure
+                [json.dumps({})],                                 # Current structures data for the type (now empty)
+                [0],                                              # Progress value
+                ['0/0 (No structure selected)'],                  # Progress label
+                [],                                               # Map marker div children
+                reset_label_values,                               # Reset label input values
+                reset_label_comments,                             # Reset label comment values
+                [{'display':'none'}]                              # Save-all-row style
+            )
         
         structure_names_in_data = [i['name'] for i in current_structure_data]
         
@@ -1214,7 +1293,8 @@ class FeatureAnnotation(Tool):
                             pass
                         print(f"[DEBUG] User {user_id}")
                         if value_to_save is not None and value_to_save != "" and value_to_save != []:
-                            create_or_update_user_label(db,
+                            #Rollback - create_or_update_user_label
+                            label_annotation_and_update_progress(db,
                                                         user_id=user_id,
                                                         annotation_id=db_anno_data_to_save.id,
                                                         label_name=label_name,
@@ -1222,10 +1302,14 @@ class FeatureAnnotation(Tool):
                                                         label_comment=comment_to_save
                                                         )
                         else:
-                            delete_user_label_by_name(db,
+                            deleted = delete_user_label_by_name(db,
                                                       user_id=user_id,
                                                       annotation_id=db_anno_data_to_save.id,
                                                       label_name=label_name)
+                            if deleted:
+                                update_file_progress(db,
+                                                     user_id=user_id,
+                                                     annotation_file_id=db_annotation_file.id)
             
             current_structure_index_for_load = original_display_index #Default to current if not navigating
             
