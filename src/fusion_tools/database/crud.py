@@ -159,6 +159,21 @@ def get_user_label_by_name(db: Session, user_id: str, annotation_id: int, label_
         .first()
     )
 
+def delete_user_label_by_name(db: Session, user_id: str, annotation_id: int, label_name: str):
+    """
+    Deletes a UserAnnotationLabel entry based on user_id, annotation_id, and label_name.
+    """
+    entry = (
+        db.query(UserAnnotationLabel)
+        .filter_by(user_id=user_id, annotation_id=annotation_id, label_name=label_name)
+        .first()
+    )
+    if entry:
+        db.delete(entry)
+        db.commit()
+        return True
+    return False
+
 # --- Progress tracking ---
 def get_or_create_file_progress(db: Session, user_id: int, annotation_file_id: int):
     entry = (

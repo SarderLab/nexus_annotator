@@ -1212,8 +1212,8 @@ class FeatureAnnotation(Tool):
                         else:
                             #Can change to any other default value in the future here.
                             pass
-                        
-                        if value_to_save is not None:
+                        print(f"[DEBUG] User {user_id}")
+                        if value_to_save is not None and value_to_save != "" and value_to_save != []:
                             create_or_update_user_label(db,
                                                         user_id=user_id,
                                                         annotation_id=db_anno_data_to_save.id,
@@ -1221,6 +1221,11 @@ class FeatureAnnotation(Tool):
                                                         label_value=value_str_to_save,
                                                         label_comment=comment_to_save
                                                         )
+                        else:
+                            delete_user_label_by_name(db,
+                                                      user_id=user_id,
+                                                      annotation_id=db_anno_data_to_save.id,
+                                                      label_name=label_name)
             
             current_structure_index_for_load = original_display_index #Default to current if not navigating
             
