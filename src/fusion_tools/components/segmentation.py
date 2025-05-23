@@ -101,7 +101,11 @@ class FeatureAnnotation(Tool):
         if label_item['type'] == 'radio':
             options = [{'label': opt, 'value': opt} for opt in label_item.get('options', [])]
             current_value = default_value
-            return dbc.RadioItems(options=options, value=current_value, id=input_id, inline=True)
+            return dbc.RadioItems(options=options, 
+                                  value=current_value, 
+                                  id=input_id, 
+                                  inline=True,
+                                  inputClassName="border border-dark")
         elif label_item['type'] == 'checkbox':
             return dbc.Checklist(
                 options=[{'label': opt, 'value': opt} for opt in label_item.get('options', [])],
@@ -236,18 +240,20 @@ class FeatureAnnotation(Tool):
                         dbc.Button(html.I(className="fas fa-comment-dots"), id={'type': f'{self.component_prefix}-label-comment-toggle', 'index': i}, color="light", className="ms-2 p-1", size="sm")
                     ], md=5, className="d-flex align-items-center"), # md=5 applies within this specific row
                     dbc.Col([
-                        input_component,
-                        dbc.Button("reset",
-                            id={'type': f'{self.component_prefix}-label-reset', 'index': i},
-                            color="link",
-                            size="sm",
-                            className="ms-2 p-0", 
-                            style={'verticalAlign': 'middle', 'textDecoration': 'underline', 'border': 'none', 'boxShadow': 'none'}),
+                        html.Div([
+                            input_component,
+                            dbc.Button("reset",
+                                id={'type': f'{self.component_prefix}-label-reset', 'index': i},
+                                color="link",
+                                size="sm",
+                                className="ms-2 p-1", 
+                                style={'verticalAlign': 'middle', 'textDecoration': 'underline', 'border': 'none', 'boxShadow': 'none'}),
+                        ], style={'display': 'flex', 'align-items': 'center'}),
                         dbc.Collapse(
                             dbc.Textarea(id={'type': f'{self.component_prefix}-label-comment-box', 'index': i}, placeholder="Enter comments...", className="mt-2", style={'height': '75px'}),
                             id={'type': f'{self.component_prefix}-label-comment-collapse', 'index': i}, is_open=False # Retained original is_open state
                         )
-                    ], md=7) # md=7 applies within this specific row
+                    ], md=7) # md=7 applies within this specific row # md=7 applies within this specific row
                 ], className="mb-3 align-items-start", key=f"label-row-{i}") # Retained key and classes
 
                 # Package the item and its Hr (if applicable)
@@ -271,7 +277,15 @@ class FeatureAnnotation(Tool):
 
             # "Save All Labels" button remains below the columns
             current_labels_rows_components.append(
-                dbc.Row(dbc.Col(dbc.Button("Save All Labels", id={'type': f'{self.component_prefix}-feature-annotation-save-all-labels', 'index': 0}, color="success", className="mt-3")), className="mb-3")
+                dbc.Row(
+                    dbc.Col(
+                        dbc.Button("Save All Labels", 
+                                   id={'type': f'{self.component_prefix}-feature-annotation-save-all-labels', 'index': 0}, 
+                                   color="success", className="mt-3")), 
+                    className="mb-3",
+                    id={"type": f'{self.component_prefix}-save-all-row','index': 0},
+                    style={'display': "none"}
+                    )
             )
         
         # Status message remains at the end
@@ -367,7 +381,9 @@ class FeatureAnnotation(Tool):
                     dbc.Row([
                         dbc.Progress(
                             id = {'type': 'feature-annotation-progress','index': 0},
-                            style = {'marginBottom':'5px','width': '100%'},
+                            style = {'marginBottom':'5px','width': '100%','height':"2rem", 'fontSize':'1.5rem'},
+                            color="dark",
+                            className="text-dark"
                         )
                     ]),
                     dbc.Row([
@@ -537,6 +553,7 @@ class FeatureAnnotation(Tool):
                 Output({'type': 'map-marker-div','index': ALL},'children'),
                 Output({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'value'),
                 Output({'type': f'{self.component_prefix}-label-comment-box', 'index': ALL}, 'value'),
+                Output({'type': f'{self.component_prefix}-save-all-row', 'index': ALL}, 'style')
             ],
             [
                 State({'type': 'feature-annotation-current-structures','index': ALL},'data'),
@@ -1142,7 +1159,7 @@ class FeatureAnnotation(Tool):
             
             #__DELETE__
             print(f"[DEBUG] added slide with slide_id {db_slide.id} - {db_slide.slide_id}")
-            print(f"[DEBUG] Current Annotation Structure {structure_drop_value}")
+            print(f"[DEBUG] Current Annotation Structure {structure_drop_value  }")
             annotation_file_type = structure_drop_value
             
             
@@ -1284,12 +1301,15 @@ class FeatureAnnotation(Tool):
                                                        }])
                     
         progress_value = 0
-        progress_label = '0%'        
+        progress_label = '0/0' 
+        save_all_style = {'display':'none'}      
 
         if current_struct_info and current_struct_info.get('bboxes') and len(current_struct_info['bboxes']) > 0:
              num_total_bboxes = len(current_struct_info['bboxes'])
              progress_value = round(100 * ((current_structure_index_for_load + 1) / num_total_bboxes)) if num_total_bboxes > 0 else 0
-             progress_label = f'{progress_value}%'
+             progress_label = f'{current_structure_index_for_load + 1}/{num_total_bboxes}'
+             if (current_structure_index_for_load + 1) == num_total_bboxes:
+                save_all_style = {'display':'block'}
 
 
         image_region, marker_centroid = self.get_structure_region(bbox_to_load_coords if bbox_to_load_coords else [], slide_information) # Pass actual coords
@@ -1338,7 +1358,8 @@ class FeatureAnnotation(Tool):
             [progress_label],
             new_markers_div,
             output_autoload_label_values, 
-            output_autoload_label_comments
+            output_autoload_label_comments,
+            [save_all_style]
         )
 
     #Temporary function until I figure out to add item_id into the information store.
