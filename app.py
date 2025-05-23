@@ -11,7 +11,7 @@ from src.fusion_tools.database.core import initialize_database
 dn_feature_schema = {
     'labels':[
         {
-            'name': 'ME(+Nodules)',
+            'name': 'Mesangial Expansion',
             'type': 'radio',
             'options': [
                 'Yes',
@@ -19,7 +19,7 @@ dn_feature_schema = {
             ]
         },
         {
-            'name': 'ME(-Nodules)',
+            'name': '+ Nodules',
             'type': 'radio',
             'options': [
                 'Yes',
@@ -27,7 +27,7 @@ dn_feature_schema = {
             ]
         },
         {
-            'name': 'GCM',
+            'name': 'Microaneurysm',
             'type': 'radio',
             'options': [
                 'Yes',

@@ -328,19 +328,19 @@ class FeatureAnnotation(Tool):
                                 style = {'width': '100%'}
                             )
                         ],md =7),
-                        dbc.Col([
-                            html.A(
-                                html.I(
-                                    className = 'fa-solid fa-rotate fa-2x',
-                                    n_clicks = 0,
-                                    id = {'type': 'feature-annotation-refresh-icon','index': 0}
-                                )
-                            ),
-                            dbc.Tooltip(
-                                target = {'type': 'feature-annotation-refresh-icon','index': 0},
-                                children = 'Click to refresh available structures'
-                            )
-                        ],md = 2,align='center'),
+                        # dbc.Col([
+                        #     html.A(
+                        #         html.I(
+                        #             className = 'fa-solid fa-rotate fa-2x',
+                        #             n_clicks = 0,
+                        #             id = {'type': 'feature-annotation-refresh-icon','index': 0}
+                        #         )
+                        #     ),
+                        #     dbc.Tooltip(
+                        #         target = {'type': 'feature-annotation-refresh-icon','index': 0},
+                        #         children = 'Click to refresh available structures'
+                        #     )
+                        # ],md = 2,align='center'),
                         dcc.Store(
                             id = {'type': 'feature-annotation-current-structures','index': 0},
                             storage_type='memory',
@@ -352,17 +352,17 @@ class FeatureAnnotation(Tool):
                             data = json.dumps({})
                         )
                     ],style = {'marginBottom': '10px'},align='center'),
-                    dbc.Row([
-                        dmc.Switch(
-                            id = {'type':'feature-annotation-grab-viewport','index': 0},
-                            size = 'lg',
-                            onLabel = 'ON',
-                            offLabel = 'OFF',
-                            checked = False,
-                            label = 'Grab structures in Viewport',
-                            description = 'Select whether or not to only grab structures in the current viewport.'
-                        )
-                    ]),
+                    # dbc.Row([
+                    #     dmc.Switch(
+                    #         id = {'type':'feature-annotation-grab-viewport','index': 0},
+                    #         size = 'lg',
+                    #         onLabel = 'ON',
+                    #         offLabel = 'OFF',
+                    #         checked = False,
+                    #         label = 'Grab structures in Viewport',
+                    #         description = 'Select whether or not to only grab structures in the current viewport.'
+                    #     )
+                    # ]),
                     dbc.Row([
                         dbc.Col(
                             dbc.Label('Bounding Box Padding:'),
@@ -520,7 +520,7 @@ class FeatureAnnotation(Tool):
         # Updating which structures are available in the dropdown menu
         self.blueprint.callback(
             [
-                Input({'type': 'feature-annotation-refresh-icon','index': ALL},'n_clicks'),
+                # Input({'type': 'feature-annotation-refresh-icon','index': ALL},'n_clicks'),
                 Input({'type': 'feature-overlay','index':ALL},'name'),
             ],
             [
@@ -949,7 +949,7 @@ class FeatureAnnotation(Tool):
             np.save(mask_save_path.replace('.png','.npy'),np.uint8(formatted_mask))
             slide_image_region.save(image_save_path)
 
-    def update_structure_options(self,refresh_clicked, overlay_names, current_features, slide_bounds, bbox_padding, slide_information, active_tab, get_viewport):
+    def update_structure_options(self, overlay_names, current_features, slide_bounds, bbox_padding, slide_information, active_tab, get_viewport):
         """Updating the structure options based on updated slide bounds
 
         :param slide_bounds: Current slide bounds
@@ -976,36 +976,36 @@ class FeatureAnnotation(Tool):
         if not any([i['value'] for i in ctx.triggered]):
             raise exceptions.PreventUpdate
 
-        get_viewport = get_pattern_matching_value(get_viewport)
+        #get_viewport = get_pattern_matching_value(get_viewport)
         structure_options = [name for name in overlay_names if name in ALWAYS_REQUIRED_STRUCTURE_TYPES]
         structure_bboxes = {}
-        if get_viewport:
-            slide_map_bounds = get_pattern_matching_value(slide_bounds)
-            if slide_map_bounds is None:
-                raise exceptions.PreventUpdate
+        # if get_viewport:
+        #     slide_map_bounds = get_pattern_matching_value(slide_bounds)
+        #     if slide_map_bounds is None:
+        #         raise exceptions.PreventUpdate
             
-            if not slide_map_bounds is None:
-                slide_map_box = box(slide_map_bounds[0][1],slide_map_bounds[0][0],slide_map_bounds[1][1],slide_map_bounds[1][0])
-            else:
-                slide_map_box = None
+        #     if not slide_map_bounds is None:
+        #         slide_map_box = box(slide_map_bounds[0][1],slide_map_bounds[0][0],slide_map_bounds[1][1],slide_map_bounds[1][0])
+        #     else:
+        #         slide_map_box = None
                 
-            bbox_padding = get_pattern_matching_value(bbox_padding)
-            current_features = json.loads(get_pattern_matching_value(current_features))
-            slide_information = json.loads(get_pattern_matching_value(slide_information))
-            x_scale = slide_information['x_scale']
-            y_scale = slide_information['y_scale']
+        #     bbox_padding = get_pattern_matching_value(bbox_padding)
+        #     current_features = json.loads(get_pattern_matching_value(current_features))
+        #     slide_information = json.loads(get_pattern_matching_value(slide_information))
+        #     x_scale = slide_information['x_scale']
+        #     y_scale = slide_information['y_scale']
 
-            for g in current_features:
-                if get_viewport:
-                    intersecting_shapes, intersecting_properties = find_intersecting(g,slide_map_box)
-                else:
-                    intersecting_shapes = g
-                if len(intersecting_shapes['features'])>0:
+        #     for g in current_features:
+        #         if get_viewport:
+        #             intersecting_shapes, intersecting_properties = find_intersecting(g,slide_map_box)
+        #         else:
+        #             intersecting_shapes = g
+        #         if len(intersecting_shapes['features'])>0:
 
-                    structure_bboxes[g['properties']['name']] = [
-                        list(shape(f['geometry']).buffer(bbox_padding*x_scale).bounds) for f in intersecting_shapes['features']
-                    ]
-                    structure_bboxes[f'{g["properties"]["name"]}_index'] = 0
+        #             structure_bboxes[g['properties']['name']] = [
+        #                 list(shape(f['geometry']).buffer(bbox_padding*x_scale).bounds) for f in intersecting_shapes['features']
+        #             ]
+        #             structure_bboxes[f'{g["properties"]["name"]}_index'] = 0
 
         new_structure_bboxes = json.dumps(structure_bboxes)
 
@@ -1107,46 +1107,46 @@ class FeatureAnnotation(Tool):
     ):
 
         if not any([i['value'] for i in ctx.triggered]):
-            structure_drop_value = get_pattern_matching_value(structure_drop_value)
+            # structure_drop_value = get_pattern_matching_value(structure_drop_value)
             
-            if not structure_drop_value:
-                #raise exceptions.PreventUpdate
-                # If no structure type is selected (dropdown is cleared)
-                empty_figure = go.Figure(layout={'margin': {'l':0,'r':0,'t':0,'b':0}, 
-                                                'xaxis': {'showticklabels': False,'showgrid': False, 'zeroline': False}, 
-                                                'yaxis': {'showticklabels': False, 'showgrid': False, 'zeroline': False}})
+            # if not structure_drop_value:
+            #     #raise exceptions.PreventUpdate
+            #     # If no structure type is selected (dropdown is cleared)
+            #     empty_figure = go.Figure(layout={'margin': {'l':0,'r':0,'t':0,'b':0}, 
+            #                                     'xaxis': {'showticklabels': False,'showgrid': False, 'zeroline': False}, 
+            #                                     'yaxis': {'showticklabels': False, 'showgrid': False, 'zeroline': False}})
                 
-                # Prepare default empty/reset values for all structured label inputs and comments
-                reset_label_values = [""] * len(strucured_label_defs)
-                reset_label_comments = [""] * len(strucured_label_defs)
+            #     # Prepare default empty/reset values for all structured label inputs and comments
+            #     reset_label_values = [""] * len(strucured_label_defs)
+            #     reset_label_comments = [""] * len(strucured_label_defs)
 
-                if isinstance(strucured_label_defs, list):
-                    for i, label_def in enumerate(strucured_label_defs):
-                        default_val = label_def.get('default')
-                        label_type = label_def.get('type')
+            #     if isinstance(strucured_label_defs, list):
+            #         for i, label_def in enumerate(strucured_label_defs):
+            #             default_val = label_def.get('default')
+            #             label_type = label_def.get('type')
 
-                        if default_val is not None:
-                            reset_label_values[i] = default_val
-                        elif label_type == 'checkbox':
-                            reset_label_values[i] = []
-                        elif label_type == 'radio':
-                            # For radio, None is often the 'unselected' state unless a default is specified
-                            reset_label_values[i] = None 
-                        else: # text, textarea
-                            reset_label_values[i] = ""
+            #             if default_val is not None:
+            #                 reset_label_values[i] = default_val
+            #             elif label_type == 'checkbox':
+            #                 reset_label_values[i] = []
+            #             elif label_type == 'radio':
+            #                 # For radio, None is often the 'unselected' state unless a default is specified
+            #                 reset_label_values[i] = None 
+            #             else: # text, textarea
+            #                 reset_label_values[i] = ""
                         
-                        reset_label_comments[i] = "" # Always clear comments
+            #             reset_label_comments[i] = "" # Always clear comments
 
-                return (
-                    [empty_figure],                                   # Figure
-                    [json.dumps({})],                                 # Current structures data for the type (now empty)
-                    [0],                                              # Progress value
-                    ['0/0 (No structure selected)'],                  # Progress label
-                    [[]],                                               # Map marker div children
-                    reset_label_values,                               # Reset label input values
-                    reset_label_comments,                             # Reset label comment values
-                    [{'display':'none'}]                              # Save-all-row style
-                )
+            #     return (
+            #         [empty_figure],                                   # Figure
+            #         [json.dumps({})],                                 # Current structures data for the type (now empty)
+            #         [0],                                              # Progress value
+            #         ['0/0 (No structure selected)'],                  # Progress label
+            #         [[]],                                               # Map marker div children
+            #         reset_label_values,                               # Reset label input values
+            #         reset_label_comments,                             # Reset label comment values
+            #         [{'display':'none'}]                              # Save-all-row style
+            #     )
             raise exceptions.PreventUpdate
         
         slide_information = json.loads(get_pattern_matching_value(slide_information))
@@ -1168,44 +1168,6 @@ class FeatureAnnotation(Tool):
         
         structure_drop_value = get_pattern_matching_value(structure_drop_value)
         
-        if not structure_drop_value:
-            #raise exceptions.PreventUpdate
-            # If no structure type is selected (dropdown is cleared)
-            empty_figure = go.Figure(layout={'margin': {'l':0,'r':0,'t':0,'b':0}, 
-                                             'xaxis': {'showticklabels': False,'showgrid': False, 'zeroline': False}, 
-                                             'yaxis': {'showticklabels': False, 'showgrid': False, 'zeroline': False}})
-            
-            # Prepare default empty/reset values for all structured label inputs and comments
-            reset_label_values = [""] * num_defined_labels
-            reset_label_comments = [""] * num_defined_labels
-
-            if isinstance(strucured_label_defs, list):
-                for i, label_def in enumerate(strucured_label_defs):
-                    default_val = label_def.get('default')
-                    label_type = label_def.get('type')
-
-                    if default_val is not None:
-                        reset_label_values[i] = default_val
-                    elif label_type == 'checkbox':
-                        reset_label_values[i] = []
-                    elif label_type == 'radio':
-                        # For radio, None is often the 'unselected' state unless a default is specified
-                        reset_label_values[i] = None 
-                    else: # text, textarea
-                        reset_label_values[i] = ""
-                    
-                    reset_label_comments[i] = "" # Always clear comments
-
-            return (
-                [empty_figure],                                   # Figure
-                [json.dumps({})],                                 # Current structures data for the type (now empty)
-                [0],                                              # Progress value
-                ['0/0 (No structure selected)'],                  # Progress label
-                [],                                               # Map marker div children
-                reset_label_values,                               # Reset label input values
-                reset_label_comments,                             # Reset label comment values
-                [{'display':'none'}]                              # Save-all-row style
-            )
         
         structure_names_in_data = [i['name'] for i in current_structure_data]
         
