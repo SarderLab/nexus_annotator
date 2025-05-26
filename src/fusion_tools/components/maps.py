@@ -195,6 +195,12 @@ class SlideMap(MapComponent):
         """
 
         layout = html.Div([
+            dcc.Interval(
+                id={'type': 'slide-select-trigger-interval', 'index': 0},
+                interval=500,  # Fire after 500 milliseconds
+                max_intervals=1, # Fire only once
+                n_intervals=0
+            ),
             dcc.Dropdown(
                 id = {'type': 'slide-select-drop','index': 0},
                 placeholder = 'Select a slide to view',
@@ -3865,12 +3871,6 @@ class ChannelMixer(MapComponent):
         """
         
         layout = html.Div([
-             dcc.Interval(
-                id={'type': 'slide-select-trigger-interval', 'index': 0},
-                interval=500,  # Fire after 500 milliseconds
-                max_intervals=1, # Fire only once
-                n_intervals=0
-            ),
             dbc.Card([
                 dbc.CardBody([
                     dbc.Row([
