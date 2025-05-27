@@ -196,7 +196,7 @@ def update_file_progress(db: Session, user_id: int, annotation_file_id: int):
     total_annotations = db.query(func.count(AnnotationData.id)).filter_by(annotation_file_id=annotation_file_id).scalar()
     
     labeled_annotations = (
-        db.query(func.count(UserAnnotationLabel.id))
+        db.query(func.count(UserAnnotationLabel.annotation_id.distinct()))
         .join(AnnotationData, UserAnnotationLabel.annotation_id == AnnotationData.id)
         .filter(
             UserAnnotationLabel.user_id == user_id,
@@ -268,8 +268,8 @@ def get_slide_progress_summary_for_user(db: Session, user_id: str, slide_interna
             return 0.0, False, []
 
 
-    total_percent_sum = 0
-    num_files_processed = 0 # Renamed for clarity
+    total_annotations_for_slide = 0
+    total_labeled_annotations_for_slide = 0
     all_completed_flag = True
     progress_details = []
 
@@ -281,10 +281,22 @@ def get_slide_progress_summary_for_user(db: Session, user_id: str, slide_interna
 
     for f in files_to_check:
 
-        prog_entry = get_or_create_file_progress(db, user_id, f.id) # user_id type must match
+        prog_entry = get_or_create_file_progress(db, user_id, f.id)
         
-        total_percent_sum += prog_entry.percent_complete
-        num_files_processed += 1 # Use this counter
+        file_total_annotations = db.query(func.count(AnnotationData.id)).filter_by(annotation_file_id=f.id).scalar()
+        file_labeled_annotations = (
+            db.query(func.count(UserAnnotationLabel.annotation_id.distinct()))
+            .join(AnnotationData, UserAnnotationLabel.annotation_id == AnnotationData.id)
+            .filter(
+                UserAnnotationLabel.user_id == user_id,
+                AnnotationData.annotation_file_id == f.id
+            )
+            .scalar()
+        )
+        
+        total_annotations_for_slide += file_total_annotations
+        total_labeled_annotations_for_slide += file_labeled_annotations
+        
         if prog_entry.status != ActivityStatus.COMPLETED:
             all_completed_flag = False
         
@@ -296,8 +308,8 @@ def get_slide_progress_summary_for_user(db: Session, user_id: str, slide_interna
             "is_required": f.is_required_for_completeness
         })
 
-    if num_files_processed == 0: 
+    if total_annotations_for_slide == 0: 
         return 0.0, False, [] # If no files were processed (e.g. all filtered out, or no progress entries made)
 
-    average_completeness = total_percent_sum / num_files_processed
+    average_completeness = (total_labeled_annotations_for_slide / total_annotations_for_slide) * 100 if total_annotations_for_slide > 0 else 0
     return average_completeness, all_completed_flag, progress_details
