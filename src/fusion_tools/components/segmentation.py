@@ -558,11 +558,20 @@ class FeatureAnnotation(Tool):
                 Output({'type': f'{self.component_prefix}-save-all-row', 'index': ALL}, 'style')
             ],
             [
+                # State({'type': 'feature-annotation-current-structures','index': ALL},'data'),
+                # State({'type': 'feature-annotation-class-drop','index':ALL},'value'),
+                # State({'type':'feature-annotation-slide-information','index':ALL},'data'),
+                # State({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'value'),
+                # State({'type': f'{self.component_prefix}-label-comment-box', 'index': ALL}, 'value'),
+                # State({'type': f'{self.component_prefix}-structured-labels-defs-store', 'index': 0}, 'data')
                 State({'type': 'feature-annotation-current-structures','index': ALL},'data'),
                 State({'type': 'feature-annotation-class-drop','index':ALL},'value'),
                 State({'type':'feature-annotation-slide-information','index':ALL},'data'),
                 State({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'value'),
+                # Add State to get the IDs of the input and comment components
+                State({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'id'),
                 State({'type': f'{self.component_prefix}-label-comment-box', 'index': ALL}, 'value'),
+                State({'type': f'{self.component_prefix}-label-comment-box', 'index': ALL}, 'id'),
                 State({'type': f'{self.component_prefix}-structured-labels-defs-store', 'index': 0}, 'data')
             ],
             prevent_initial_call=True
@@ -1032,65 +1041,123 @@ class FeatureAnnotation(Tool):
         if n_clicks is None or n_clicks == 0:
             raise exceptions.PreventUpdate
         return not current_is_open
+    
+    def _clean_label_value(self, value):
+        """
+        Cleans the label value by attempting to load it as JSON.
+        If it's a JSON string of a list with one item, it returns the item.
+        """
+        try:
+            # Try to load the value as JSON
+            loaded_value = json.loads(value)
+            # If it's a list, return the first element if it's the only one, else the list
+            if isinstance(loaded_value, list):
+                return loaded_value[0] if len(loaded_value) == 1 else loaded_value
+            return loaded_value
+        except (json.JSONDecodeError, TypeError):
+            # If it's not a valid JSON string or not a string, return the original value
+            return value
+    
 
+    def _create_labels_file_from_db(self, slide_information, structure_name):
+        """
+        Creates a labels.json file by fetching all data directly from the database
+        for the given slide and structure, ensuring a correct and reliable output.
+        """
+        try:
+            with get_db() as db:
+                user_id = self.session_data.get("current_user", {}).get("_id", GUEST_USER_ID)
+                api_slide_id = self.extract_itemid_from_regions_url(slide_information.get("regions_url", ''))
+                if not api_slide_id:
+                    return dbc.Alert("Could not determine slide ID.", color="danger", dismissable=True, duration=5000)
+
+                db_slide = get_slide_by_api_id(db, api_slide_id)
+                if not db_slide:
+                    return dbc.Alert(f"Slide with ID {api_slide_id} not found in the database.", color="warning", dismissable=True, duration=5000)
+
+                db_annotation_file = get_annotation_file_by_type(db, db_slide.id, structure_name)
+                if not db_annotation_file:
+                    return dbc.Alert(f"Annotation file for structure '{structure_name}' not found.", color="info", dismissable=True, duration=4000)
+
+                annotations = get_annotations_for_file(db, db_annotation_file.id)
+                if not annotations:
+                    return dbc.Alert(f"No annotations found for structure '{structure_name}'.", color="info", dismissable=True, duration=4000)
+
+                all_user_labels = get_user_labels_for_file(db, user_id, db_annotation_file.id)
+
+                labels_by_anno_id = {}
+                for label in all_user_labels:
+                    if label.annotation_id not in labels_by_anno_id:
+                        labels_by_anno_id[label.annotation_id] = {}
+                    
+                    cleaned_value = self._clean_label_value(label.label_value)
+                    labels_by_anno_id[label.annotation_id][label.label_name] = cleaned_value
+                    
+                    if label.label_comment:
+                        if "Comments" not in labels_by_anno_id[label.annotation_id]:
+                            labels_by_anno_id[label.annotation_id]["Comments"] = {}
+                        labels_by_anno_id[label.annotation_id]["Comments"][label.label_name] = label.label_comment
+
+                labels_list = []
+                for anno in annotations:
+                    if anno.id in labels_by_anno_id:
+                        retrieved_bbox = json.loads(anno.bbox) if anno.bbox else None
+                        if not retrieved_bbox:
+                            continue
+                        
+                        # Use the y-inverted map coordinates for the final JSON, matching the original system's format
+                        final_map_coords = [retrieved_bbox[0], -retrieved_bbox[1], retrieved_bbox[2], -retrieved_bbox[3]]
+
+                        # Use the original, trusted calculation on the correctly-formatted map coordinates
+                        # This produces the correct, POSITIVE pixel coordinates
+                        bbox_slide_pixels = [
+                            int(final_map_coords[0] / slide_information['x_scale']),
+                            int(final_map_coords[3] / slide_information['y_scale']),
+                            int(final_map_coords[2] / slide_information['x_scale']),
+                            int(final_map_coords[1] / slide_information['y_scale'])
+                        ]
+                        
+                        merged_entry = {
+                            "bbox_map_coords": final_map_coords,
+                            "bbox_slide_pixels": bbox_slide_pixels
+                        }
+                        
+                        merged_entry.update(labels_by_anno_id[anno.id])
+                        labels_list.append(merged_entry)
+
+                slide_name = slide_information.get('name', 'unknown_slide')
+                output_data = {
+                    slide_name: labels_list,
+                    "structure": structure_name
+                }
+                
+                slide_name_path = os.path.join(self.storage_path, slide_name)
+                if not os.path.exists(slide_name_path):
+                    os.makedirs(slide_name_path)
+                
+                save_path = os.path.join(slide_name_path, 'labels.json')
+                with open(save_path, 'w') as f:
+                    json.dump(output_data, f, indent=4)
+                
+                return dbc.Alert(f"Successfully created labels.json for structure: {structure_name}.", color="success", dismissable=True, duration=4000)
+
+        except Exception as e:
+            return dbc.Alert(f"An error occurred: {e}", color="danger", dismissable=True, duration=5000)
+
+    
     def save_all_structured_labels(self, n_clicks, input_values, input_ids, comment_values,
-                                   structured_labels_defs, current_structure_data_str,
-                                   current_structure_name, slide_information_str):
+                                structured_labels_defs, current_structure_data_str,
+                                current_structure_name, slide_information_str):
         if n_clicks is None or n_clicks == 0:
-            return dbc.Alert("No action.", color="info", dismissable=True, duration=3000)
+            return no_update
 
-        if not all([current_structure_data_str, current_structure_name, slide_information_str, structured_labels_defs]):
-            return dbc.Alert("Error: Missing current structure or slide information to associate labels.", color="danger", dismissable=True, duration=5000)
+        if not all([current_structure_name, slide_information_str]):
+                return dbc.Alert("Error: Missing structure or slide information.", color="danger", dismissable=True, duration=5000)
 
-        current_structure_data = json.loads(current_structure_data_str)
         slide_information = json.loads(slide_information_str)
-
-        image_bbox_map_coords = None
-        active_structure_info = None
-        # Logic to find active structure (same as in save_annotation and update_structure)
-        if isinstance(current_structure_data, list):
-            active_structure_info = next((item for item in current_structure_data if item['name'] == current_structure_name), None)
-        elif isinstance(current_structure_data, dict):
-             if current_structure_name in current_structure_data and f"{current_structure_name}_index" in current_structure_data:
-                 active_structure_info = {"name": current_structure_name, "bboxes": current_structure_data.get(current_structure_name, []), "index": current_structure_data.get(f"{current_structure_name}_index",0)}
         
-        if active_structure_info and active_structure_info.get("bboxes"):
-            current_idx = active_structure_info.get("index", 0)
-            if current_idx < len(active_structure_info["bboxes"]):
-                image_bbox_map_coords = active_structure_info["bboxes"][current_idx]
-
-        if not image_bbox_map_coords:
-            return dbc.Alert("Error: Cannot identify current structure's bounding box.", color="danger", dismissable=True, duration=5000)
-
-        num_labels_saved = 0
-        
-        # The input_ids from ALL pattern matching gives a list of dicts like [{'type': 'my-prefix-label-input-value', 'index': 0}, ...]
-        # We need to iterate based on the indices present in input_ids, assuming they match the order of structured_labels_defs
-        # or more robustly, use the index from input_id to fetch the correct definition.
-        
-        map_input_idx_to_list_idx = {item['index']: i for i, item in enumerate(input_ids)}
-
-        for i_def, label_def in enumerate(structured_labels_defs):
-            # Find the corresponding input value and comment value using the definition's original index (i_def)
-            list_idx = map_input_idx_to_list_idx.get(i_def)
-
-            if list_idx is not None: # Check if this label was actually rendered and has an input
-                label_name = label_def['name']
-                current_value = input_values[list_idx] 
-                current_comment = comment_values[list_idx] if list_idx < len(comment_values) else None
-
-                if current_value is not None: 
-                    try:
-                        self.save_label(label_name, current_value, image_bbox_map_coords, slide_information, label_comment=current_comment)
-                        num_labels_saved += 1
-                    except Exception as e:
-                        return dbc.Alert(f"Error saving label '{label_name}': {e}", color="warning", dismissable=True, duration=5000)
-            # else: label was defined but perhaps not rendered or matched by input_ids
-
-        if num_labels_saved > 0:
-            return dbc.Alert(f"Successfully saved {num_labels_saved} label(s) for structure: {current_structure_name}.", color="success", dismissable=True, duration=4000)
-        else:
-            return dbc.Alert("No labels were actively saved (perhaps no values entered or no matching inputs found).", color="info", dismissable=True, duration=4000)
+        # Call the new method to create the file from DB
+        return self._create_labels_file_from_db(slide_information, current_structure_name)
     
     
     def update_structure(
@@ -1101,8 +1168,10 @@ class FeatureAnnotation(Tool):
         current_structure_data,      # dict of bbox values for selected structure]
         current_class_value,         # Not important right now. 
         slide_information,           # [json_slide0, json_slide1, ...]           
-        label_values_from_ui,           # [label_val0, label_val1, ...]
+        label_values_from_ui, 
+        input_ids,# [label_val0, label_val1, ...]
         label_comments_from_ui, 
+        comment_ids,
         strucured_label_defs 
     ):
 
@@ -1147,7 +1216,10 @@ class FeatureAnnotation(Tool):
         if current_struct_info and current_struct_info.get('bboxes') and \
             len(current_struct_info['bboxes']) > original_display_index:
                 bbox_coords = current_struct_info['bboxes'][original_display_index]
-                bbox_being_displayed_str = json.dumps(sorted(bbox_coords))
+                
+                #Invert y-coordinates before saving to preserve data correct slide pixels
+                bbox_coords_to_save = [bbox_coords[0], -bbox_coords[1], bbox_coords[2], -bbox_coords[3]]
+                bbox_being_displayed_str = json.dumps(sorted(bbox_coords_to_save))
         
         with get_db() as db:
             regions_url = slide_information.get("regions_url", '')
@@ -1212,10 +1284,21 @@ class FeatureAnnotation(Tool):
                                                                     annotation_idx=bbox_being_displayed_str)
                         
                 if db_anno_data_to_save:
-                    for i, label_def in enumerate(strucured_label_defs):
+                    print(input_ids)
+                    map_input_idx_to_list_pos = {item['index']: i for i, item in enumerate(input_ids)}
+                    map_comment_idx_to_list_pos = {item['index']: i for i, item in enumerate(comment_ids)}
+                    
+                    print(map_input_idx_to_list_pos)
+                    
+                    for i_def, label_def in enumerate(strucured_label_defs):
+                        
                         label_name = label_def['name']
-                        value_to_save = label_values_from_ui[i] if i < len(label_values_from_ui) else None
-                        comment_to_save = label_comments_from_ui[i] if i < len(label_comments_from_ui) else None
+                        
+                        input_list_pos = map_input_idx_to_list_pos.get(i_def)
+                        comment_list_pos = map_comment_idx_to_list_pos.get(i_def)
+                        
+                        value_to_save = label_values_from_ui[input_list_pos] if input_list_pos is not None else None
+                        comment_to_save = label_comments_from_ui[comment_list_pos] if comment_list_pos is not None else None
                         
                         value_str_to_save = ""
                         #convert list type value to str for saving
@@ -1285,7 +1368,11 @@ class FeatureAnnotation(Tool):
                 
                 pass
             
-            bbox_to_load_str = json.dumps(sorted(bbox_to_load_coords)) if bbox_to_load_coords else None
+            bbox_to_load_str = None
+            if bbox_to_load_coords:
+                #Invert y-coordinates before saving
+                bbox_to_load_coords_to_save = [bbox_to_load_coords[0], -bbox_to_load_coords[1],bbox_to_load_coords[2], -bbox_to_load_coords[3]]
+                bbox_to_load_str = json.dumps(sorted(bbox_to_load_coords_to_save))
             
             #Load user labels for the bbox region if it exists in DB
             if bbox_to_load_str:
@@ -1295,6 +1382,10 @@ class FeatureAnnotation(Tool):
                 
                 #Check If the user annotation exists
                 if db_anno_data_to_load: 
+                    
+                    map_input_idx_to_list_pos = {item['index']: i for i, item in enumerate(input_ids)}
+                    map_comment_idx_to_list_pos = {item['index']: i for i, item in enumerate(comment_ids)}
+                    
                     for i, label_def in enumerate(strucured_label_defs):
                         label_name = label_def['name']
                         user_label_entry = get_user_label_by_name(db,
@@ -1307,12 +1398,12 @@ class FeatureAnnotation(Tool):
                             label_type = label_def.get('type')
                             if label_type == 'checkbox':
                                 try:
-                                    output_autoload_label_values[i] = json.loads(user_label_entry.label_value)
+                                    output_autoload_label_values[map_input_idx_to_list_pos.get(i)] = json.loads(user_label_entry.label_value)
                                 except json.JSONDecodeError:
-                                    output_autoload_label_values[i] = [] #Default for checkbox
+                                    output_autoload_label_values[map_input_idx_to_list_pos.get(i)] = [] #Default for checkbox
                             else:
-                                output_autoload_label_values[i] = user_label_entry.label_value
-                            output_autoload_label_comments[i] = user_label_entry.label_comment if user_label_entry.label_comment is not None else ""
+                                output_autoload_label_values[map_input_idx_to_list_pos.get(i)] = user_label_entry.label_value
+                            output_autoload_label_comments[map_comment_idx_to_list_pos.get(i)] = user_label_entry.label_comment if user_label_entry.label_comment is not None else ""
                 
                 #No annotation data exists - creating new entry in DB
                 else:
