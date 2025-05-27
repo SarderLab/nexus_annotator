@@ -1169,6 +1169,19 @@ class FeatureAnnotation(Tool):
                                                                file_type=annotation_file_type,
                                                                is_required=True if annotation_file_type in ALWAYS_REQUIRED_STRUCTURE_TYPES else False
                                                                )
+
+            # This code is here cos we need to track progress lazily (i.e when we encounter a new annoatation file that is "required" for completeness).
+            annotation_count = db.query(func.count(AnnotationData.id)).filter_by(annotation_file_id=db_annotation_file.id).scalar()
+            if annotation_count == 0 and current_struct_info and current_struct_info.get('bboxes'):
+                annotation_definitions = [
+                    {"annotation_idx": json.dumps(sorted(bbox)), "bbox": json.dumps(sorted(bbox))}
+                    for bbox in current_struct_info['bboxes']
+                ]
+                populate_annotations_from_file(
+                    db,
+                    annotation_file_id=db_annotation_file.id,
+                    annotation_definitions=annotation_definitions
+                )
             
             #__DELETE__
             print(f"[DEBUG] added annotation_file to the database with id {db_annotation_file.id}")
