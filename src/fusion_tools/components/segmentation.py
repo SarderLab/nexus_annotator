@@ -275,13 +275,13 @@ class FeatureAnnotation(Tool):
                 ])
             )
 
-            # "Save All Labels" button remains below the columns
+            # "Submit Labels" button remains below the columns
             current_labels_rows_components.append(
                 dbc.Row(
                     dbc.Col(
-                        dbc.Button("Save All Labels", 
+                        dbc.Button("Submit Labels", 
                                    id={'type': f'{self.component_prefix}-feature-annotation-save-all-labels', 'index': 0}, 
-                                   color="success", className="mt-3")), 
+                                   color="success", className="d-grid col-12 mx-auto mt-3")), 
                     className="mb-3",
                     id={"type": f'{self.component_prefix}-save-all-row','index': 0},
                     style={'display': "none"}
@@ -674,9 +674,10 @@ class FeatureAnnotation(Tool):
         self.blueprint.callback(
             Output(f'{self.component_prefix}-save-all-status', 'children'), 
             Input({'type': f'{self.component_prefix}-feature-annotation-save-all-labels', 'index': 0}, 'n_clicks'),
-            [State({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'div'),
+            [State({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'value'),
              State({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'id'), 
              State({'type': f'{self.component_prefix}-label-comment-box', 'index': ALL}, 'value'),
+             State({'type': f'{self.component_prefix}-label-comment-box', 'index': ALL}, 'id'),
              State({'type': f'{self.component_prefix}-structured-labels-defs-store', 'index': 0}, 'data'),
              State({'type': 'feature-annotation-current-structures', 'index': 0}, 'data'),
              State({'type': 'feature-annotation-structure-drop', 'index': 0}, 'value'),
@@ -1125,8 +1126,11 @@ class FeatureAnnotation(Tool):
                         merged_entry.update(labels_by_anno_id[anno.id])
                         labels_list.append(merged_entry)
 
+                username = self.session_data.get("current_user", {}).get("login", "guest")
                 slide_name = slide_information.get('name', 'unknown_slide')
+                
                 output_data = {
+                    "username": username,
                     slide_name: labels_list,
                     "structure": structure_name
                 }
@@ -1135,7 +1139,7 @@ class FeatureAnnotation(Tool):
                 if not os.path.exists(slide_name_path):
                     os.makedirs(slide_name_path)
                 
-                save_path = os.path.join(slide_name_path, 'labels.json')
+                save_path = os.path.join(slide_name_path, f'labels_{username}.json')
                 with open(save_path, 'w') as f:
                     json.dump(output_data, f, indent=4)
                 
@@ -1145,7 +1149,7 @@ class FeatureAnnotation(Tool):
             return dbc.Alert(f"An error occurred: {e}", color="danger", dismissable=True, duration=5000)
 
     
-    def save_all_structured_labels(self, n_clicks, input_values, input_ids, comment_values,
+    def save_all_structured_labels(self, n_clicks, input_values, input_ids, comment_values, comment_ids,
                                 structured_labels_defs, current_structure_data_str,
                                 current_structure_name, slide_information_str):
         if n_clicks is None or n_clicks == 0:
@@ -1155,6 +1159,92 @@ class FeatureAnnotation(Tool):
                 return dbc.Alert("Error: Missing structure or slide information.", color="danger", dismissable=True, duration=5000)
 
         slide_information = json.loads(slide_information_str)
+        current_structure_data = json.loads(current_structure_data_str)
+        try:
+            user_id = self.session_data["current_user"]["_id"]
+        except KeyError:
+            user_id = GUEST_USER_ID
+
+        current_struct_info = None
+        for s in current_structure_data:
+            if s['name'] == current_structure_name:
+                current_struct_info = s
+                break
+        
+        if current_struct_info:
+            original_display_index = current_struct_info.get("index", 0)
+            bbox_being_displayed_str = None
+            if current_struct_info.get('bboxes') and \
+                len(current_struct_info['bboxes']) > original_display_index:
+                    bbox_coords = current_struct_info['bboxes'][original_display_index]
+                    bbox_coords_to_save = [bbox_coords[0], -bbox_coords[1], bbox_coords[2], -bbox_coords[3]]
+                    bbox_being_displayed_str = json.dumps(sorted(bbox_coords_to_save))
+
+            if bbox_being_displayed_str:
+                with get_db() as db:
+                    regions_url = slide_information.get("regions_url", '')
+                    api_slide_id = self.extract_itemid_from_regions_url(regions_url)
+                    display_slide_name = slide_information.get('name', 'unknown_slide')
+                    db_slide = get_or_create_slide(db, api_slide_id=api_slide_id, display_name=display_slide_name)
+                    db_annotation_file = get_or_create_annotation_file(db,
+                                                                       slide_internal_id=db_slide.id,
+                                                                       file_type=current_structure_name,
+                                                                       is_required=True if current_structure_name in ALWAYS_REQUIRED_STRUCTURE_TYPES else False)
+
+                    db_anno_data_to_save = get_annotation_by_idx(db,
+                                                                    annotation_file_id=db_annotation_file.id,
+                                                                    annotation_idx=bbox_being_displayed_str)
+
+                    if not db_anno_data_to_save:
+                        populate_annotations_from_file(
+                            db,
+                            annotation_file_id=db_annotation_file.id,
+                            annotation_definitions=[{
+                                "annotation_idx": bbox_being_displayed_str,
+                                "bbox": bbox_being_displayed_str
+                            }]
+                        )
+                        db_anno_data_to_save = get_annotation_by_idx(db,
+                                                                    annotation_file_id=db_annotation_file.id,
+                                                                    annotation_idx=bbox_being_displayed_str)
+
+                    if db_anno_data_to_save:
+                        map_input_idx_to_list_pos = {item['index']: i for i, item in enumerate(input_ids)}
+                        map_comment_idx_to_list_pos = {item['index']: i for i, item in enumerate(comment_ids)}
+
+                        for i_def, label_def in enumerate(structured_labels_defs):
+                            label_name = label_def['name']
+                            input_list_pos = map_input_idx_to_list_pos.get(i_def)
+                            comment_list_pos = map_comment_idx_to_list_pos.get(i_def)
+
+                            value_to_save = input_values[input_list_pos] if input_list_pos is not None else None
+                            comment_to_save = comment_values[comment_list_pos] if comment_list_pos is not None else None
+
+                            value_str_to_save = ""
+                            if isinstance(value_to_save, list):
+                                value_str_to_save = json.dumps(value_to_save)
+                            elif value_to_save is not None:
+                                value_str_to_save = str(value_to_save)
+                            else:
+                                pass
+
+                            if value_to_save is not None and value_to_save != "" and value_to_save != []:
+                                label_annotation_and_update_progress(db,
+                                                            user_id=user_id,
+                                                            annotation_id=db_anno_data_to_save.id,
+                                                            label_name=label_name,
+                                                            label_value=value_str_to_save,
+                                                            label_comment=comment_to_save
+                                                            )
+                            else:
+                                deleted = delete_user_label_by_name(db,
+                                                          user_id=user_id,
+                                                          annotation_id=db_anno_data_to_save.id,
+                                                          label_name=label_name)
+                                if deleted:
+                                    update_file_progress(db,
+                                                         user_id=user_id,
+                                                         annotation_file_id=db_annotation_file.id)
         
         # Call the new method to create the file from DB
         return self._create_labels_file_from_db(slide_information, current_structure_name)
