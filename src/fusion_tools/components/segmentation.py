@@ -160,7 +160,6 @@ class FeatureAnnotation(Tool):
         """ 
             
         feature_annotation_session_data = session_data.get('data',{}).get('feature-annotation')
-        self.session_data = session_data
         
         current_classes_from_data = []
         current_labels_from_data = [] # This will hold structured labels
@@ -299,6 +298,7 @@ class FeatureAnnotation(Tool):
             )
     
         layout = html.Div([
+            dcc.Store(id={'type': f'{self.component_prefix}-session-data-store', 'index': 0}, data=session_data),
             dcc.Store(id={'type': f'{self.component_prefix}-structured-labels-defs-store', 'index': 0}, data=structured_labels_data),
             dbc.Card([
                 dbc.CardBody([
@@ -558,21 +558,15 @@ class FeatureAnnotation(Tool):
                 Output({'type': f'{self.component_prefix}-save-all-row', 'index': ALL}, 'style')
             ],
             [
-                # State({'type': 'feature-annotation-current-structures','index': ALL},'data'),
-                # State({'type': 'feature-annotation-class-drop','index':ALL},'value'),
-                # State({'type':'feature-annotation-slide-information','index':ALL},'data'),
-                # State({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'value'),
-                # State({'type': f'{self.component_prefix}-label-comment-box', 'index': ALL}, 'value'),
-                # State({'type': f'{self.component_prefix}-structured-labels-defs-store', 'index': 0}, 'data')
                 State({'type': 'feature-annotation-current-structures','index': ALL},'data'),
                 State({'type': 'feature-annotation-class-drop','index':ALL},'value'),
                 State({'type':'feature-annotation-slide-information','index':ALL},'data'),
                 State({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'value'),
-                # Add State to get the IDs of the input and comment components
                 State({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'id'),
                 State({'type': f'{self.component_prefix}-label-comment-box', 'index': ALL}, 'value'),
                 State({'type': f'{self.component_prefix}-label-comment-box', 'index': ALL}, 'id'),
-                State({'type': f'{self.component_prefix}-structured-labels-defs-store', 'index': 0}, 'data')
+                State({'type': f'{self.component_prefix}-structured-labels-defs-store', 'index': 0}, 'data'),
+                State({'type': f'{self.component_prefix}-session-data-store', 'index': 0}, 'data')
             ],
             prevent_initial_call=True
         )(self.update_structure)
@@ -674,14 +668,17 @@ class FeatureAnnotation(Tool):
         self.blueprint.callback(
             Output(f'{self.component_prefix}-save-all-status', 'children'), 
             Input({'type': f'{self.component_prefix}-feature-annotation-save-all-labels', 'index': 0}, 'n_clicks'),
-            [State({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'value'),
+            [
+             State({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'value'),
              State({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'id'), 
              State({'type': f'{self.component_prefix}-label-comment-box', 'index': ALL}, 'value'),
              State({'type': f'{self.component_prefix}-label-comment-box', 'index': ALL}, 'id'),
              State({'type': f'{self.component_prefix}-structured-labels-defs-store', 'index': 0}, 'data'),
              State({'type': 'feature-annotation-current-structures', 'index': 0}, 'data'),
              State({'type': 'feature-annotation-structure-drop', 'index': 0}, 'value'),
-             State({'type': 'feature-annotation-slide-information', 'index': 0}, 'data')],
+             State({'type': 'feature-annotation-slide-information', 'index': 0}, 'data'),
+             State({'type': f'{self.component_prefix}-session-data-store', 'index':0},'data')
+             ],
             prevent_initial_call=True
         )(self.save_all_structured_labels)
         
@@ -1060,14 +1057,14 @@ class FeatureAnnotation(Tool):
             return value
     
 
-    def _create_labels_file_from_db(self, slide_information, structure_name):
+    def _create_labels_file_from_db(self, slide_information, structure_name,session_data):
         """
         Creates a labels.json file by fetching all data directly from the database
         for the given slide and structure, ensuring a correct and reliable output.
         """
         try:
             with get_db() as db:
-                user_id = self.session_data.get("current_user", {}).get("_id", GUEST_USER_ID)
+                user_id = session_data.get("current_user", {}).get("_id", GUEST_USER_ID)
                 api_slide_id = self.extract_itemid_from_regions_url(slide_information.get("regions_url", ''))
                 if not api_slide_id:
                     return dbc.Alert("Could not determine slide ID.", color="danger", dismissable=True, duration=5000)
@@ -1126,7 +1123,7 @@ class FeatureAnnotation(Tool):
                         merged_entry.update(labels_by_anno_id[anno.id])
                         labels_list.append(merged_entry)
 
-                username = self.session_data.get("current_user", {}).get("login", "guest")
+                username = session_data.get("current_user", {}).get("login", "guest")
                 slide_name = slide_information.get('name', 'unknown_slide')
                 
                 output_data = {
@@ -1151,7 +1148,7 @@ class FeatureAnnotation(Tool):
     
     def save_all_structured_labels(self, n_clicks, input_values, input_ids, comment_values, comment_ids,
                                 structured_labels_defs, current_structure_data_str,
-                                current_structure_name, slide_information_str):
+                                current_structure_name, slide_information_str,session_data):
         if n_clicks is None or n_clicks == 0:
             return no_update
 
@@ -1161,7 +1158,7 @@ class FeatureAnnotation(Tool):
         slide_information = json.loads(slide_information_str)
         current_structure_data = json.loads(current_structure_data_str)
         try:
-            user_id = self.session_data["current_user"]["_id"]
+            user_id = session_data["current_user"]["_id"]
         except KeyError:
             user_id = GUEST_USER_ID
 
@@ -1247,7 +1244,7 @@ class FeatureAnnotation(Tool):
                                                          annotation_file_id=db_annotation_file.id)
         
         # Call the new method to create the file from DB
-        return self._create_labels_file_from_db(slide_information, current_structure_name)
+        return self._create_labels_file_from_db(slide_information, current_structure_name,session_data)
     
     
     def update_structure(
@@ -1262,7 +1259,8 @@ class FeatureAnnotation(Tool):
         input_ids,# [label_val0, label_val1, ...]
         label_comments_from_ui, 
         comment_ids,
-        strucured_label_defs 
+        strucured_label_defs,
+        session_data
     ):
 
         if not any([i['value'] for i in ctx.triggered]):
@@ -1281,7 +1279,7 @@ class FeatureAnnotation(Tool):
         
         #Get user_id if user is logged in else track it under guest login
         try:
-            user_id = self.session_data["current_user"]["_id"]
+            user_id = session_data["current_user"]["_id"]
         except KeyError:
             user_id = GUEST_USER_ID
         
