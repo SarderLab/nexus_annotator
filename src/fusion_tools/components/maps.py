@@ -229,7 +229,9 @@ class SlideMap(MapComponent):
                 },
                 zoom = 0,
                 zoomDelta = 0.25,
-                style = {'height': '90vh','width': '100%','margin': 'auto','display': 'inline-block'},
+                style = {'height': '90vh','width': '100%','margin': 'auto','display': 'inline-block',
+                         'position':'relative',
+                         'zIndex':0},
                 children = [
                     html.Div(
                         id = {'type': 'map-tile-layer-holder','index': 0},
