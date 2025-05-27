@@ -9,88 +9,6 @@ from src.fusion_tools.database.core import initialize_database
 
 
 dn_feature_schema = {
-    # 'labels':[
-    #     {
-    #         'name': 'Mesangial Expansion',
-    #         'type': 'radio',
-    #         'options': [
-    #             'Yes',
-    #             'No',
-    #         ]
-    #     },
-    #     {
-    #         'name': '+ Nodules',
-    #         'type': 'radio',
-    #         'options': [
-    #             'Yes',
-    #             'No',
-    #         ]
-    #     },
-    #     {
-    #         'name': 'Microaneurysm',
-    #         'type': 'radio',
-    #         'options': [
-    #             'Yes',
-    #             'No',
-    #         ]
-    #     },
-    #     {
-    #         'name': 'Periglomerular Fibrosis',
-    #         'type': 'radio',
-    #         'options': [
-    #             'Yes',
-    #             'No'
-    #         ]
-    #     },
-    #     {
-    #         'name': 'Mesangial Hypercellularity',
-    #         'type': 'radio',
-    #         'options': [
-    #             'Yes',
-    #             'No'
-    #         ]
-    #     },
-    #     {
-    #         'name': 'Glomerular Hylanosis',
-    #         'type': 'radio',
-    #         'options': [
-    #             'Yes',
-    #             'No'
-    #         ]
-    #     },
-    #     {
-    #         'name': 'Capsular Drops',
-    #         'type': 'radio',
-    #         'options': [
-    #             'Yes',
-    #             'No'
-    #         ]
-    #     },
-    #     {
-    #         'name': 'GBM Thickening',
-    #         'type': 'radio',
-    #         'options': [
-    #             'Yes',
-    #             'No'
-    #         ]
-    #     },
-    #     {
-    #         'name': 'Neovascularization',
-    #         'type': 'radio',
-    #         'options': [
-    #             'Yes',
-    #             'No'
-    #         ]
-    #     },
-    #     {
-    #         'name': 'Immune Cells',
-    #         'type': 'radio',
-    #         'options': [
-    #             'Yes',
-    #             'No'
-    #         ]
-    #     }
-    # ]
     'labels':[
         {
             'name': 'Mesangial Expansion',
@@ -166,8 +84,8 @@ dn_feature_schema = {
 }
 
 def main():
-    os.environ["DATABASE_PATH"] = os.getcwd()
-    dsa_path = 'https://athena.rc.ufl.edu/api/v1'
+    os.environ["DATABASE_PATH"] = os.getenv('DATABASE_PATH', '/pubapps/athena/fstools/db/' )
+    dsa_path = os.getenv('DSA_URL', 'https://athena.rc.ufl.edu/api/v1')
     app_port = 8050 
     dsa_handler = DSAHandler(girderApiUrl=dsa_path)
     initialize_database()
@@ -185,7 +103,7 @@ def main():
                                     preset_schema=dn_feature_schema,
                                     annotations_format='rgb',
                                     labels_format='json',
-                                    storage_path=os.getcwd(),
+                                    storage_path=os.getenv('STORAGE_PATH','/pubapps/athena/fstools/localannotations/'),
                                 )
                             ],
                             {'width': '8'}

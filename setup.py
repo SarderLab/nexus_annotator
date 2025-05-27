@@ -42,8 +42,7 @@ setuptools.setup(
             "dash_treeview_antd>=0.0.1",
             "fastapi>=0.103.2",
             "uvicorn>=0.30.6",
-            "python-multipart",
-            "watchdog"
+            "python-multipart"
         ]
     },
     packages=setuptools.find_packages(where = 'src',include=["fusion_tools*"]),
