@@ -283,7 +283,6 @@ class FeatureAnnotation(Tool):
                                    color="success", className="d-grid col-12 mx-auto mt-3")), 
                     className="mb-3",
                     id={"type": f'{self.component_prefix}-save-all-row','index': 0},
-                    style={'display': "none"}
                     )
             )
         
@@ -555,7 +554,8 @@ class FeatureAnnotation(Tool):
                 Output({'type': 'map-marker-div','index': ALL},'children'),
                 Output({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'value'),
                 Output({'type': f'{self.component_prefix}-label-comment-box', 'index': ALL}, 'value'),
-                Output({'type': f'{self.component_prefix}-save-all-row', 'index': ALL}, 'style')
+                # Output({'type': f'{self.component_prefix}-save-all-row', 'index': ALL}, 'style'),
+                Output({'type': f'{self.component_prefix}-label-comment-collapse', 'index': ALL}, 'is_open')
             ],
             [
                 State({'type': 'feature-annotation-current-structures','index': ALL},'data'),
@@ -1276,6 +1276,7 @@ class FeatureAnnotation(Tool):
         #This needs to be empty strings if we are navigating to a new annotation mask
         output_autoload_label_values = [""] * num_defined_labels
         output_autoload_label_comments = [""] * num_defined_labels
+        output_comment_collapse_is_open = [False] *  num_defined_labels
         
         #Get user_id if user is logged in else track it under guest login
         try:
@@ -1398,8 +1399,8 @@ class FeatureAnnotation(Tool):
                             #Can change to any other default value in the future here.
                             pass
                         print(f"[DEBUG] User {user_id}")
+                        #Comment is currently tied to the value - See this to revert or add other functionality in the future. s
                         if value_to_save is not None and value_to_save != "" and value_to_save != []:
-                            #Rollback - create_or_update_user_label
                             label_annotation_and_update_progress(db,
                                                         user_id=user_id,
                                                         annotation_id=db_anno_data_to_save.id,
@@ -1492,6 +1493,7 @@ class FeatureAnnotation(Tool):
                             else:
                                 output_autoload_label_values[map_input_idx_to_list_pos.get(i)] = user_label_entry.label_value
                             output_autoload_label_comments[map_comment_idx_to_list_pos.get(i)] = user_label_entry.label_comment if user_label_entry.label_comment is not None else ""
+                            output_comment_collapse_is_open[map_comment_idx_to_list_pos.get(i)] = True if user_label_entry.label_comment is not None else False
                 
                 #No annotation data exists - creating new entry in DB
                 else:
@@ -1505,14 +1507,14 @@ class FeatureAnnotation(Tool):
                     
         progress_value = 0
         progress_label = '0/0' 
-        save_all_style = {'display':'none'}      
+        # save_all_style = {'display':'none'}      
 
         if current_struct_info and current_struct_info.get('bboxes') and len(current_struct_info['bboxes']) > 0:
              num_total_bboxes = len(current_struct_info['bboxes'])
              progress_value = round(100 * ((current_structure_index_for_load + 1) / num_total_bboxes)) if num_total_bboxes > 0 else 0
              progress_label = f'{current_structure_index_for_load + 1}/{num_total_bboxes}'
-             if (current_structure_index_for_load + 1) == num_total_bboxes:
-                save_all_style = {'display':'block'}
+            #  if (current_structure_index_for_load + 1) == num_total_bboxes:
+            #     save_all_style = {'display':'block'}
 
 
         image_region, marker_centroid = self.get_structure_region(bbox_to_load_coords if bbox_to_load_coords else [], slide_information) # Pass actual coords
@@ -1562,7 +1564,8 @@ class FeatureAnnotation(Tool):
             new_markers_div,
             output_autoload_label_values, 
             output_autoload_label_comments,
-            [save_all_style]
+            # [save_all_style],
+            output_comment_collapse_is_open
         )
 
     #Temporary function until I figure out to add item_id into the information store.
