@@ -24,7 +24,6 @@ EXPOSE 8050
 
 # Define environment variables
 ENV DATABASE_PATH /pubapps/athena/fstools/db/
-ENV STORAGE_PATH /pubapps/athena/fstools/localannotations/
 
 
 # Run app.py when the container launches

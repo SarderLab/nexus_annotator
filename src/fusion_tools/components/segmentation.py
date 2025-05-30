@@ -1493,7 +1493,7 @@ class FeatureAnnotation(Tool):
                             else:
                                 output_autoload_label_values[map_input_idx_to_list_pos.get(i)] = user_label_entry.label_value
                             output_autoload_label_comments[map_comment_idx_to_list_pos.get(i)] = user_label_entry.label_comment if user_label_entry.label_comment is not None else ""
-                            output_comment_collapse_is_open[map_comment_idx_to_list_pos.get(i)] = True if user_label_entry.label_comment is not None else False
+                            output_comment_collapse_is_open[map_comment_idx_to_list_pos.get(i)] = True if user_label_entry.label_comment != "" else False
                 
                 #No annotation data exists - creating new entry in DB
                 else:
@@ -2050,55 +2050,6 @@ class FeatureAnnotation(Tool):
 
         return [add_class_drop_value], [options_div], [add_submit_disabled], [new_class_options], [new_label_options], json.dumps(session_data)
 
-    # def save_annotation(self, save_click, current_figure, current_classes, current_structure_data, current_structure, slide_information, bbox_pad):
-    #     """Saving the current annotation in image format
-
-    #     :param save_click: Save button is clicked
-    #     :type save_click: list
-    #     :param current_figure: Figure information which includes current annotated shapes
-    #     :type current_figure: list
-    #     :param current_classes: List of classes available for saving
-    #     :type current_classes: list
-    #     :param current_structure_data: Bounding boxes for current structure as well as current index
-    #     :param current_structure_data: list
-    #     :param current_structure: Currently selected structure
-    #     :param current_structure: list
-    #     :param slide_information: Information on the current slide (such as x and y scale)
-    #     :param slide_information: list
-    #     :param bbox_pad: Amount of padding applied to image bounding boxes
-    #     :param bbox_pad: list
-    #     """
-
-
-    #     if not any([i['value'] for i in ctx.triggered]) or current_classes is None:
-    #         raise exceptions.PreventUpdate
-
-    #     current_classes = get_pattern_matching_value(current_classes)
-    #     current_structure_data = json.loads(get_pattern_matching_value(current_structure_data))
-    #     current_structure = get_pattern_matching_value(current_structure)
-    #     slide_information = json.loads(get_pattern_matching_value(slide_information))
-    #     bbox_pad = get_pattern_matching_value(bbox_pad)
-
-    #     current_shapes = get_pattern_matching_value(current_figure)['layout'].get('shapes')
-    #     current_lines = get_pattern_matching_value(current_figure)['layout'].get('line')
-
-    #     annotations = []
-    #     if not current_shapes is None:
-    #         annotations += current_shapes
-    #     if not current_lines is None:
-    #         annotations += current_lines
-            
-    #     image_bbox = current_structure_data[current_structure][current_structure_data[f'{current_structure}_index']]
-    #     # Applying padding
-    #     image_bbox[0] -= int(bbox_pad/2)
-    #     image_bbox[1] -= int(bbox_pad/2)
-    #     image_bbox[2] += int(bbox_pad/2)
-    #     image_bbox[3] += int(bbox_pad/2)
-
-    #     # Saving annotation to storage_path
-    #     self.save_mask(annotations, current_classes, image_bbox, slide_information)
-
-    #     return ['Saved!']
 
 
 
