@@ -36,6 +36,7 @@ from dash_extensions.javascript import Namespace, assign
 # fusion-tools imports
 from fusion_tools.visualization.vis_utils import get_pattern_matching_value
 from fusion_tools.utils.shapes import find_intersecting, extract_geojson_properties, path_to_mask, process_filters_queries
+from fusion_tools.utils.types import TaskIdentifiers
 from fusion_tools import Tool
 
 
@@ -57,7 +58,8 @@ class FeatureAnnotation(Tool):
                  storage_path: str,
                  labels_format: str = 'json',
                  annotations_format: str = 'one-hot',
-                 preset_schema: Union[dict,None] = None):
+                 preset_schema: Union[dict,None] = None,
+                 task_identifier: TaskIdentifiers = None):
         """Constructor method
 
         :param storage_path: File path to store annotated images and labels
@@ -68,7 +70,10 @@ class FeatureAnnotation(Tool):
 
         # Overruling inherited session_update prop
         self.session_update = True
-
+        if not task_identifier:
+            raise ValueError("Please set the task identifier, e.g. DN for the Feature Annotation class.")
+    
+        self.task_identifier = task_identifier
         self.storage_path = storage_path
         self.labels_format = labels_format
         self.annotations_format = annotations_format
@@ -1057,7 +1062,7 @@ class FeatureAnnotation(Tool):
             return value
     
 
-    def _create_labels_file_from_db(self, slide_information, structure_name,session_data):
+    def _create_labels_file_from_db(self, slide_information, task_specific_structure_name,session_data):
         """
         Creates a labels.json file by fetching all data directly from the database
         for the given slide and structure, ensuring a correct and reliable output.
@@ -1073,13 +1078,13 @@ class FeatureAnnotation(Tool):
                 if not db_slide:
                     return dbc.Alert(f"Slide with ID {api_slide_id} not found in the database.", color="warning", dismissable=True, duration=5000)
 
-                db_annotation_file = get_annotation_file_by_type(db, db_slide.id, structure_name)
+                db_annotation_file = get_annotation_file_by_type(db, db_slide.id, task_specific_structure_name)
                 if not db_annotation_file:
-                    return dbc.Alert(f"Annotation file for structure '{structure_name}' not found.", color="info", dismissable=True, duration=4000)
+                    return dbc.Alert(f"Annotation file for structure '{task_specific_structure_name}' not found.", color="info", dismissable=True, duration=4000)
 
                 annotations = get_annotations_for_file(db, db_annotation_file.id)
                 if not annotations:
-                    return dbc.Alert(f"No annotations found for structure '{structure_name}'.", color="info", dismissable=True, duration=4000)
+                    return dbc.Alert(f"No annotations found for structure '{task_specific_structure_name}'.", color="info", dismissable=True, duration=4000)
 
                 all_user_labels = get_user_labels_for_file(db, user_id, db_annotation_file.id)
 
@@ -1089,7 +1094,8 @@ class FeatureAnnotation(Tool):
                         labels_by_anno_id[label.annotation_id] = {}
                     
                     cleaned_value = self._clean_label_value(label.label_value)
-                    labels_by_anno_id[label.annotation_id][label.label_name] = cleaned_value
+                    if cleaned_value not in [None, "", []]:
+                        labels_by_anno_id[label.annotation_id][label.label_name] = cleaned_value
                     
                     if label.label_comment:
                         if "Comments" not in labels_by_anno_id[label.annotation_id]:
@@ -1103,20 +1109,20 @@ class FeatureAnnotation(Tool):
                         if not retrieved_bbox:
                             continue
                         
+                        #Don't add entry if it's empty.
+                        if not labels_by_anno_id[anno.id]:
+                            continue
                         # Use the y-inverted map coordinates for the final JSON, matching the original system's format
                         final_map_coords = [retrieved_bbox[0], -retrieved_bbox[1], retrieved_bbox[2], -retrieved_bbox[3]]
 
-                        # Use the original, trusted calculation on the correctly-formatted map coordinates
-                        # This produces the correct, POSITIVE pixel coordinates
                         bbox_slide_pixels = [
                             int(final_map_coords[0] / slide_information['x_scale']),
-                            int(final_map_coords[3] / slide_information['y_scale']),
                             int(final_map_coords[2] / slide_information['x_scale']),
-                            int(final_map_coords[1] / slide_information['y_scale'])
+                            int(final_map_coords[1] / slide_information['y_scale']),
+                            int(final_map_coords[3] / slide_information['y_scale']),
                         ]
                         
                         merged_entry = {
-                            "bbox_map_coords": final_map_coords,
                             "bbox_slide_pixels": bbox_slide_pixels
                         }
                         
@@ -1129,18 +1135,19 @@ class FeatureAnnotation(Tool):
                 output_data = {
                     "username": username,
                     slide_name: labels_list,
-                    "structure": structure_name
+                    "structure": task_specific_structure_name
                 }
                 
                 slide_name_path = os.path.join(self.storage_path, slide_name)
                 if not os.path.exists(slide_name_path):
                     os.makedirs(slide_name_path)
                 
-                save_path = os.path.join(slide_name_path, f'labels_{username}.json')
+                output_filename = f'labels_{username}_{task_specific_structure_name.replace('/','_')}.json'
+                save_path = os.path.join(slide_name_path, output_filename)
                 with open(save_path, 'w') as f:
                     json.dump(output_data, f, indent=4)
                 
-                return dbc.Alert(f"Successfully created labels.json for structure: {structure_name}.", color="success", dismissable=True, duration=4000)
+                return dbc.Alert(f"Successfully created {output_filename} for structure: {task_specific_structure_name}.", color="success", dismissable=True, duration=4000)
 
         except Exception as e:
             return dbc.Alert(f"An error occurred: {e}", color="danger", dismissable=True, duration=5000)
@@ -1183,9 +1190,11 @@ class FeatureAnnotation(Tool):
                     api_slide_id = self.extract_itemid_from_regions_url(regions_url)
                     display_slide_name = slide_information.get('name', 'unknown_slide')
                     db_slide = get_or_create_slide(db, api_slide_id=api_slide_id, display_name=display_slide_name)
+                    
+                    task_specific_structure_name = self._get_task_specific_file_type(current_structure_name)
                     db_annotation_file = get_or_create_annotation_file(db,
                                                                        slide_internal_id=db_slide.id,
-                                                                       file_type=current_structure_name,
+                                                                       file_type=task_specific_structure_name,
                                                                        is_required=True if current_structure_name in ALWAYS_REQUIRED_STRUCTURE_TYPES else False)
 
                     db_anno_data_to_save = get_annotation_by_idx(db,
@@ -1225,7 +1234,7 @@ class FeatureAnnotation(Tool):
                             else:
                                 pass
 
-                            if value_to_save is not None and value_to_save != "" and value_to_save != []:
+                            if (value_to_save is not None and value_to_save != "" and value_to_save != []) or (comment_to_save is not None and comment_to_save != "" and comment_to_save != []) :
                                 label_annotation_and_update_progress(db,
                                                             user_id=user_id,
                                                             annotation_id=db_anno_data_to_save.id,
@@ -1244,9 +1253,16 @@ class FeatureAnnotation(Tool):
                                                          annotation_file_id=db_annotation_file.id)
         
         # Call the new method to create the file from DB
-        return self._create_labels_file_from_db(slide_information, current_structure_name,session_data)
+        task_specific_structure_name_for_file = self._get_task_specific_file_type(current_structure_name)
+        return self._create_labels_file_from_db(slide_information, task_specific_structure_name_for_file,session_data)
     
-    
+    #Combine the task_identifier with teh annotation file name to create a unique entry in the database.
+    def _get_task_specific_file_type(self, base_structure_name:str):
+        
+        if not self.task_identifier:
+            raise ValueError("Please set the task identifier when calling the FeatureAnnotation class")
+        return f"{self.task_identifier}_{base_structure_name}"
+
     def update_structure(
         self,
         structure_drop_value,        # [name of annotation structure]
@@ -1312,23 +1328,23 @@ class FeatureAnnotation(Tool):
         
         with get_db() as db:
             regions_url = slide_information.get("regions_url", '')
-            #Itemid is slide_id - unique in each DSA_instance
+            
             api_slide_id = self.extract_itemid_from_regions_url(regions_url)
             
             display_slide_name = slide_information.get('name', 'unknown_slide')
             
             db_slide = get_or_create_slide(db, api_slide_id=api_slide_id, display_name=display_slide_name)
             
+            task_specific_annotation_file_type = self._get_task_specific_file_type(structure_drop_value)
             #__DELETE__
             print(f"[DEBUG] added slide with slide_id {db_slide.id} - {db_slide.slide_id}")
-            print(f"[DEBUG] Current Annotation Structure {structure_drop_value  }")
-            annotation_file_type = structure_drop_value
+            print(f"[DEBUG] Current Annotation Structure {task_specific_annotation_file_type }")
             
             
             db_annotation_file = get_or_create_annotation_file(db, 
                                                                slide_internal_id=db_slide.id,
-                                                               file_type=annotation_file_type,
-                                                               is_required=True if annotation_file_type in ALWAYS_REQUIRED_STRUCTURE_TYPES else False
+                                                               file_type=task_specific_annotation_file_type,
+                                                               is_required=True if structure_drop_value in ALWAYS_REQUIRED_STRUCTURE_TYPES else False
                                                                )
 
             # This code is here cos we need to track progress lazily (i.e when we encounter a new annoatation file that is "required" for completeness).
@@ -1400,7 +1416,7 @@ class FeatureAnnotation(Tool):
                             pass
                         print(f"[DEBUG] User {user_id}")
                         #Comment is currently tied to the value - See this to revert or add other functionality in the future. s
-                        if value_to_save is not None and value_to_save != "" and value_to_save != []:
+                        if (value_to_save is not None and value_to_save != "" and value_to_save != []) or (comment_to_save is not None and comment_to_save != "" and comment_to_save != []):
                             label_annotation_and_update_progress(db,
                                                         user_id=user_id,
                                                         annotation_id=db_anno_data_to_save.id,
