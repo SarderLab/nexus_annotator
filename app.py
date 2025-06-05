@@ -4,9 +4,8 @@ import os
 from src.fusion_tools.visualization import Visualization
 from src.fusion_tools.handler.dsa_handler import DSAHandler
 from src.fusion_tools.components import SlideMap, FeatureAnnotation
-from src.fusion_tools.fusion.data_types import get_upload_types
 from src.fusion_tools.database.core import initialize_database
-
+from src.fusion_tools.utils.types import TaskIdentifiers
 
 dn_feature_schema = {
     'labels':[
@@ -83,11 +82,73 @@ dn_feature_schema = {
     ]
 }
 
+
+fsgs = {
+    'labels':[
+        {
+            'name': 'Segmental sclerosis',
+            'type': 'radio',
+            'options': [
+                'Present, FSGS',
+                'Abnormal, not FSGS'
+            ]
+        },
+        {
+            'name': 'FSGS',
+            'type': 'radio',
+            'options': [
+                "Perihilar",
+                "Collapsing",
+                "NOS",
+                "Tip lesion"
+            ]
+        },
+        {
+            'name': 'Hyalinosis',
+            'type': 'checkbox',
+            'options': [
+                'Yes',
+            ]
+        },
+        {
+            'name': 'Foam cells',
+            'type': 'checkbox',
+            'options': [
+                'Yes'
+            ]
+        },
+        {
+            'name': 'Podocyte capping',
+            'type': 'checkbox',
+            'options': [
+                'Yes'
+            ]
+        },
+        {
+            'name': 'Adhesion to Bowman\'s capsule',
+            'type': 'checkbox',
+            'options': [
+                'Yes'
+            ]
+        },
+        {
+            'name': 'Additional Comments',
+            'type': 'textarea',
+            'placeholder': "Enter comments..."
+        }
+    ]
+}
+
 def main():
-    os.environ["DATABASE_PATH"] = os.getenv('DATABASE_PATH', '/pubapps/athena/fstools/db/' )
+    # os.environ["DATABASE_PATH"] = os.getenv('DATABASE_PATH', '/pubapps/athena/fstools/db' )
+    os.environ["DATABASE_PATH"] = os.getcwd()
     dsa_path = os.getenv('DSA_URL', 'https://athena.rc.ufl.edu/api/v1')
     app_port = 8050 
     dsa_handler = DSAHandler(girderApiUrl=dsa_path)
+    task_identifiers: TaskIdentifiers = {
+        'FSGS': 'FSGS',
+        'DN': 'DN'
+    }
     initialize_database()
     vis_session = Visualization(
         linkage = 'page',
@@ -103,7 +164,9 @@ def main():
                                     preset_schema=dn_feature_schema,
                                     annotations_format='rgb',
                                     labels_format='json',
-                                    storage_path=os.getenv('STORAGE_PATH','/pubapps/athena/fstools/localannotations/'),
+                                    # storage_path=os.getenv('STORAGE_PATH','/pubapps/athena/fstools/localannotations/dn/'),
+                                    storage_path=os.getcwd(),
+                                    task_identifier=task_identifiers['DN']
                                 )
                             ],
                             {'width': '8'}
@@ -113,9 +176,26 @@ def main():
             "Dataset Builder": [
                 dsa_handler.create_dataset_builder()
             ],
-            "Dataset Uploader": [
-                dsa_handler.create_uploader(upload_types = get_upload_types())
-            ]
+            "FSGS Annotation": [
+                [
+                        (   SlideMap(),
+                            {'width': '4',} 
+                        ),
+                        (
+                            [
+                                FeatureAnnotation(
+                                    preset_schema=fsgs,
+                                    annotations_format='rgb',
+                                    labels_format='json',
+                                    # storage_path=os.getenv('STORAGE_PATH','/pubapps/athena/fstools/localannotations/fsgs/'),
+                                    storage_path=os.getcwd(),
+                                    task_identifier=task_identifiers['FSGS']
+                                )
+                            ],
+                            {'width': '8'}
+                        )
+                        ]
+            ],
         },
         header = [
             dsa_handler.create_login_component()

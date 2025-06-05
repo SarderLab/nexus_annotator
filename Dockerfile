@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir .[interactive]
 EXPOSE 8050
 
 # Define environment variables
-ENV DATABASE_PATH /pubapps/athena/fstools/db/
+ENV DATABASE_PATH /pubapps/athena/fstools/db
 
 
 # Run app.py when the container launches
