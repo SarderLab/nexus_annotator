@@ -381,7 +381,7 @@ class FeatureAnnotation(Tool):
                             ),
                             md = 8
                         )
-                    ],style = {'marginTop':'5px','marginBottom':'5px'}),
+                    ],style = {'marginTop':'5px','marginBottom':'5px', 'display':'none'}),
                     dbc.Row([
                         dbc.Progress(
                             id = {'type': 'feature-annotation-progress','index': 0},
