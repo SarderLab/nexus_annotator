@@ -303,6 +303,21 @@ class DSAHandler(Handler):
 
         return item_info
 
+    def get_user_folder_names(self,user_data:dict):
+        #No login info, return empty list
+        return []
+        if not user_data:
+            return []
+        
+        user_id = user_data["_id"]
+        token = user_data["token"]
+        user_folders = self.gc.get(path=f"/folder?parentType=user&parentId={user_id}", parameters={"auth_tkt": token})
+        user_folder_names = []
+        for folder in user_folders:
+            if 'name' in folder:
+                user_folder_names.append(folder['name'])
+        return user_folder_names
+    
     def get_folder_info(self, folder_id:str, user_token:Union[str,None]=None)->dict:
         """Getting folder info from ID
 

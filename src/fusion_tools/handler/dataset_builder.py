@@ -474,10 +474,12 @@ class DatasetBuilder(DSATool):
                             )
 
         else:
-            
+                
             folders_in_folder = []
             unique_folders = []
-            user_folders = ['Private','Public']
+            user_folders = self.handler.get_user_folder_names(session_data['current_user'])
+            #The get_folder_folders() function is handling the user_folders for now even if user_folders is returning empty. 
+            #Need to investigate further. For now, this implementation acts as fallback. 
             for u_f in user_folders:
                 user_folder_info = self.handler.get_path_info(
                     path = f'/user/{folder_info["login"]}/{u_f}',
