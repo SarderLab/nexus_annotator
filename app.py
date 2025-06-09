@@ -5,7 +5,7 @@ from src.fusion_tools.visualization import Visualization
 from src.fusion_tools.handler.dsa_handler import DSAHandler
 from src.fusion_tools.components import SlideMap, FeatureAnnotation
 from src.fusion_tools.database.core import initialize_database
-from src.fusion_tools.utils.types import TaskIdentifiers
+from src.fusion_tools.utils.types import TaskIdentifiers, UserCollectionAccessLevel
 
 dn_feature_schema = {
     'labels':[
@@ -149,13 +149,18 @@ def main():
         'FSGS': 'FSGS',
         'DN': 'DN'
     }
+    
+    access_level_def: UserCollectionAccessLevel = {
+    "ONLY_USER_FOLDER": "ONLY_USER_FOLDER",
+    "ALL_USER_FOLDERS": "ALL_USER_FOLDERS"
+    }
     initialize_database()
     vis_session = Visualization(
         linkage = 'page',
         components = {
             "DN Labels": [
                         [
-                        (   SlideMap(),
+                        (   SlideMap(task_identifier=task_identifiers['DN']),
                             {'width': '4',} 
                         ),
                         (
@@ -174,11 +179,11 @@ def main():
                         ]
                  ], 
             "Dataset Builder": [
-                dsa_handler.create_dataset_builder()
+                dsa_handler.create_dataset_builder(access_level=access_level_def["ONLY_USER_FOLDER"])
             ],
             "FSGS Annotation": [
                 [
-                        (   SlideMap(),
+                        (   SlideMap(task_identifier=task_identifiers['FSGS']),
                             {'width': '4',} 
                         ),
                         (
