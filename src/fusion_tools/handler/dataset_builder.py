@@ -25,8 +25,13 @@ from dash_extensions.enrich import DashBlueprint, html, Input, Output, State, Pr
 from fusion_tools.visualization.vis_utils import get_pattern_matching_value
 
 from fusion_tools import DSATool
+from fusion_tools.utils.types import UserCollectionAccessLevel
 
 
+access_level_def: UserCollectionAccessLevel = {
+    "ONLY_USER_FOLDER": "ONLY_USER_FOLDER",
+    "ALL_USER_FOLDERS": "ALL_USER_FOLDERS"
+}
 
 class DatasetBuilder(DSATool):
     """Handler for DatasetBuilder component, enabling selection/deselection of folders and slides to add to current visualization session.
@@ -36,12 +41,14 @@ class DatasetBuilder(DSATool):
     """
     def __init__(self,
                  handler,
-                 include_only: Union[list,None] = None
+                 include_only: Union[list,None] = None,
+                 access_level: UserCollectionAccessLevel = access_level_def['ALL_USER_FOLDERS']
                 ):
         
         super().__init__()
         self.include_only = include_only
         self.handler = handler
+        self.access_level = access_level
 
     def __str__(self):
         return 'Dataset Builder'
@@ -62,21 +69,21 @@ class DatasetBuilder(DSATool):
         self.dataset_builder_callbacks()
        
     def gen_collections_dataframe(self,session_data:dict):
-
         collections_info = []
-        collections = self.handler.get_collections()
-        for c in collections:
-            #slide_count = self.handler.get_collection_slide_count(collection_name = c['name'])
-            folder_count = self.handler.get_path_info(path = f'/collection/{c["name"]}')
-            #if slide_count>0:
-            collections_info.append({
-                'Collection Name': c['name'],
-                'Collection ID': c['_id'],
-                #'Number of Slides': slide_count,
-                'Number of Folders': folder_count['nFolders'],
-                'Last Updated': folder_count['updated']
-            } | c['meta'])
-
+        if self.access_level == access_level_def['ALL_USER_FOLDERS']:
+            collections = self.handler.get_collections()
+            for c in collections:
+                #slide_count = self.handler.get_collection_slide_count(collection_name = c['name'])
+                folder_count = self.handler.get_path_info(path = f'/collection/{c["name"]}')
+                #if slide_count>0:
+                collections_info.append({
+                    'Collection Name': c['name'],
+                    'Collection ID': c['_id'],
+                    #'Number of Slides': slide_count,
+                    'Number of Folders': folder_count['nFolders'],
+                    'Last Updated': folder_count['updated']
+                } | c['meta'])
+        
         if 'current_user' in session_data:
             collections_info.append({
                 'Collection Name': f'User: {session_data["current_user"]["login"]}',
@@ -85,6 +92,9 @@ class DatasetBuilder(DSATool):
                 'Last Updated': '-',
                 'token': session_data['current_user']['token']
             })
+        
+        else:
+            dbc.Alert("You need to be logged in!!!")
             
         collections_df = pd.DataFrame.from_records(collections_info)
 

@@ -23,10 +23,15 @@ from fusion_tools.handler.dataset_builder import DatasetBuilder
 from fusion_tools.handler.plugin import DSAPluginProgress, DSAPluginRunner
 from fusion_tools.handler.save_session import DSASession
 from fusion_tools import Handler
+from fusion_tools.utils.types import UserCollectionAccessLevel
 
 #TODO: Consider making a function decorator for authentication just to clean up all the 
 # self.gc.setToken and +f'?token={user_token}' lines
 
+access_level_def: UserCollectionAccessLevel = {
+    "ONLY_USER_FOLDER": "ONLY_USER_FOLDER",
+    "ALL_USER_FOLDERS": "ALL_USER_FOLDERS"
+}
 
 class DSAHandler(Handler):
     """Handler for DSA (digital slide archive) instance
@@ -755,7 +760,7 @@ class DSAHandler(Handler):
 
         return dsa_uploader
 
-    def create_dataset_builder(self,include:Union[list,None]=None):
+    def create_dataset_builder(self,include:Union[list,None]=None, access_level: UserCollectionAccessLevel = access_level_def['ALL_USER_FOLDERS']):
         """Table view allowing parsing of dataset/slide-level metadata and adding remote/local slides to current session.
 
         :param include: List of collections to only include (None = include everything accessible to this user), defaults to None
@@ -766,7 +771,8 @@ class DSAHandler(Handler):
         
         dataset_builder = DatasetBuilder(
             handler = self,
-            include_only=include
+            include_only=include,
+            access_level = access_level
         )
 
         return dataset_builder
