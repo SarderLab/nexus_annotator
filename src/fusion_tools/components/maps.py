@@ -536,8 +536,7 @@ class SlideMap(MapComponent):
         # Updating based on modifications to current visualization session
         self.blueprint.callback(
             [
-                Input('anchor-vis-store','data'),
-                Input({'type': 'slide-select-trigger-interval', 'index':ALL}, 'n_intervals')
+                Input('anchor-vis-store','data')
             ],
             [
                 Output({'type':'slide-select-drop','index': ALL},'options')
@@ -898,79 +897,24 @@ class SlideMap(MapComponent):
                 Input({'type': 'map-slide-information','index': ALL},'data')
             ]
         )
+    
+    def update_vis_session(self, new_vis_data):
+        """Updating slide dropdown options based on current visualization session
 
-    def update_vis_session(self, vis_data_json, n_intervals):
+        :param new_vis_data: Visualization session data containing information on selectable slides
+        :type new_vis_data: str
+        :return: New options for slide dropdown
+        :rtype: list
         """
-        Updates and sorts the slide dropdown options based on the visualization session data.
-        This single callback handles fetching completeness, sorting, and creating the progress bar UI.
-        """
-        if not n_intervals or n_intervals[0] == 0:
-            raise exceptions.PreventUpdate
-        
-        if not vis_data_json:
-            raise exceptions.PreventUpdate
+        new_vis_data = json.loads(new_vis_data)
 
-        vis_data = json.loads(vis_data_json)
-        user_id = vis_data.get("current_user", {}).get("_id")
-
-        # If there's no slide data in the store, return empty options.
-        # This handles cases during page load where the store might be temporarily empty.
-        if not vis_data.get('current'):
-            return [[]]
-        
-        print("DEBUG -Trigger on reload")
-
-        slides_to_sort = []
-        with get_db() as db:
-            # First, gather all slides with their future completeness score
-            for original_index, slide in enumerate(vis_data['current']):
-                completeness = 0
-                if 'api_url' in slide and user_id:
-                    slide_id = slide['tiles_url'].split('/item/')[1].split('/')[0]
-                    db_slide = get_or_create_slide(db, api_slide_id=slide_id, display_name=slide['name'])
-                    if db_slide:
-                        completeness, _, _ = get_slide_progress_summary_for_user(db, user_id, db_slide.id, required_only=True)
-                
-                # Store all the necessary info, including the original index
-                slides_to_sort.append({
-                    'label_name': slide['name'],
-                    'completeness': completeness,
-                    'value': original_index  # The value must point to the original, unsorted index
-                })
-
-        # Sort the list of slides by completeness
-        sorted_slides = sorted(slides_to_sort, key=lambda x: x['completeness'])
-
-        # Now, build the final options list from the sorted data
-        new_slide_options = []
-        for slide_info in sorted_slides:
-            completeness = slide_info['completeness']
-            color = "red"
-            if completeness > 99:
-                color = "green"
-            elif completeness > 50:
-                color = "yellow"
-
-            # Create the custom label with the progress bar
-            label = html.Div([
-                html.Span(slide_info['label_name'], style={'flexGrow': 1}),
-                html.Div(f"{int(completeness)}%", style={
-                    'backgroundColor': color,
-                    'color': 'black',
-                    'display': 'inline-block',
-                    'padding': '3px',
-                    'marginLeft': '10px',
-                    'borderRadius': '5px',
-                    'width': '50px',
-                    'textAlign': 'center',
-                    'flexShrink': 0
-                })
-            ], style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'space-between', 'width': '100%'})
-
-            new_slide_options.append({
-                'label': label,
-                'value': slide_info['value']
-            })
+        new_slide_options = [
+            {
+                'label': i['name'],
+                'value': idx
+            }
+            for idx, i in enumerate(new_vis_data['current'])
+        ]
 
         return [new_slide_options]
 
