@@ -383,14 +383,6 @@ class FeatureAnnotation(Tool):
                         )
                     ],style = {'marginTop':'5px','marginBottom':'5px', 'display':'none'}),
                     dbc.Row([
-                        dbc.Progress(
-                            id = {'type': 'feature-annotation-progress','index': 0},
-                            style = {'marginBottom':'5px','width': '100%','height':"2rem", 'fontSize':'1.5rem'},
-                            color="dark",
-                            className="text-dark"
-                        )
-                    ]),
-                    dbc.Row([
                         dbc.Col([
                             dbc.Row([
                                 html.Div(
@@ -414,43 +406,82 @@ class FeatureAnnotation(Tool):
                                     )
                                 )
                             ]),
-                            html.Div(
-                                id = {'type': 'feature-annotation-buttons-div','index': 0},
-                                children = [
-                                    dcc.Loading(
-                                        dbc.Row([
-                                            dbc.Col([
-                                                dbc.Button(
-                                                    'Previous',
-                                                    className = 'd-grid col-12 mx-auto',
-                                                    n_clicks = 0,
-                                                    id = {'type': 'feature-annotation-previous','index': 0}
-                                                )
-                                            ],md = 6),
-                                            # dbc.Col([
-                                            #     dbc.Button(
-                                            #         'Save',
-                                            #         className = 'd-grid col-12 mx-auto',
-                                            #         n_clicks = 0,
-                                            #         color = 'success',
-                                            #         id = {'type':'feature-annotation-save','index': 0}
-                                            #     )
-                                            # ],md = 4),
-                                            dbc.Col([
-                                                dbc.Button(
-                                                    'Next',
-                                                    className = 'd-grid col-12 mx-auto',
-                                                    n_clicks = 0,
-                                                    id = {'type': 'feature-annotation-next','index': 0}
-                                                )
-                                            ],md = 6)
-                                        ])
-                                    )
-                                ],
-                                style = {'marginTop':'10px'}
-                            )
-                        ])
-                    ]),
+                dcc.Loading(
+                    dbc.Row(
+    [
+        # Previous Button - wider
+        dbc.Col(
+            dbc.Button(
+                'Previous',
+                color="outline-primary",
+                size="lg",
+                className="w-100 shadow-sm",
+                n_clicks=0,
+                id={'type': 'feature-annotation-previous', 'index': 0},
+                title="Go to previous image",
+                style={"height": "48px", "fontWeight": "bold"}
+            ),
+            width=4,  # Wider
+            className="d-flex align-items-center"
+        ),
+        # Middle input/text - narrower, equally spaced and dark
+        dbc.Col(
+            dbc.InputGroup(
+                [
+                    dbc.Input(
+                        id={'type': 'feature-annotation-goto-input', 'index': 0},
+                        type='number',
+                        min=1,
+                        debounce=True,
+                        style={
+                            "textAlign": "center",
+                            "width": "60px",
+                            "color": "#343a40",         # dark text
+                            "fontWeight": "500",
+                            "borderRight": "none",
+                            "background": "#fff"
+                        },
+                        className="mx-2"
+                    ),
+                    dbc.InputGroupText(
+                        id={'type': 'feature-annotation-total-label', 'index': 0},
+                        style={
+                            "backgroundColor": "#fff",
+                            "color": "#343a40",          # dark text
+                            "fontWeight": "500",
+                            "width": "60px",             # ensures equal width to input
+                            "justifyContent": "center"
+                        },
+                        className="mx-2"
+                    ),
+                ],
+                size="lg",
+                className="shadow-sm rounded d-flex justify-content-center"
+            ),
+            width=2,  # Narrower middle
+            className="d-flex justify-content-center align-items-center"
+        ),
+        # Next Button - wider
+        dbc.Col(
+            dbc.Button(
+                'Next',
+                color="primary",
+                size="lg",
+                className="w-100 shadow-sm",
+                n_clicks=0,
+                id={'type': 'feature-annotation-next', 'index': 0},
+                title="Go to next image",
+                style={"height": "48px", "fontWeight": "bold"}
+            ),
+            width=4,  # Wider
+            className="d-flex align-items-center"
+        ),
+    ],
+    justify="center",
+    align="center",
+    className="my-4 gy-2"
+)
+                )])]),
                     dbc.Row([
                         dbc.Col([
                             dbc.Label('Annotation Options')
@@ -459,35 +490,6 @@ class FeatureAnnotation(Tool):
                     *current_classes_section,
                     *current_labels_rows_components,
                     html.Hr(),
-                    # dbc.Row([
-                    #     dbc.Col([
-                    #         dbc.Label('Add Class/Label: ',html_for={'type': 'feature-annotation-add-class','index': 0})
-                    #     ],md = 2),
-                    #     dbc.Col([
-                    #         dcc.Dropdown(
-                    #             options = ['Class','Text Label','Options Label'],
-                    #             value = [],
-                    #             placeholder = 'New Type',
-                    #             id = {'type': 'feature-annotation-add-class','index': 0}
-                    #         )
-                    #     ], md = 4),
-                    #     dbc.Col([
-                    #         html.Div(
-                    #             id = {'type':'feature-annotation-add-options','index': 0},
-                    #             children = [],
-                    #         )
-                    #     ], md = 4),
-                    #     dbc.Col([
-                    #         dbc.Button(
-                    #             'Add',
-                    #             id = {'type': 'feature-annotation-add-submit','index': 0},
-                    #             className = 'd-grid col-12 mx-auto',
-                    #             color = 'success',
-                    #             disabled = True,
-                    #             style = {'height': '100%','width': '100%'}
-                    #         )
-                    #     ], md = 2)
-                    # ])
                 ])
             ])
         ]) #style = {'maxHeight': '100vh','overflow': 'scroll'}
@@ -530,8 +532,8 @@ class FeatureAnnotation(Tool):
             [
                 Output({'type': 'feature-annotation-structure-drop','index': ALL},'options'),
                 Output({'type': 'feature-annotation-current-structures','index': ALL},'data'),
-                Output({'type': 'feature-annotation-progress','index': ALL},'value'),
-                Output({'type': 'feature-annotation-progress','index': ALL},'label'),
+                # Output({'type': 'feature-annotation-progress','index': ALL},'value'),
+                # Output({'type': 'feature-annotation-progress','index': ALL},'label'),
                 Output({'type': 'feature-annotation-figure','index': ALL},'figure')
             ],
             [
@@ -550,12 +552,18 @@ class FeatureAnnotation(Tool):
                 Input({'type': 'feature-annotation-structure-drop','index': ALL},'value'),
                 Input({'type': 'feature-annotation-previous','index': ALL},'n_clicks'),
                 Input({'type': 'feature-annotation-next','index': ALL},'n_clicks'),
+                
+                Input({'type': 'feature-annotation-goto-input', 'index': ALL}, 'value')
             ],
             [
                 Output({'type': 'feature-annotation-figure','index': ALL},'figure'),
                 Output({'type':'feature-annotation-current-structures','index': ALL},'data'),
-                Output({'type': 'feature-annotation-progress','index': ALL},'value'),
-                Output({'type': 'feature-annotation-progress','index': ALL},'label'),
+                
+                Output({'type': 'feature-annotation-goto-input', 'index': ALL}, 'value'),
+                Output({'type': 'feature-annotation-total-label', 'index': ALL}, 'children'),
+                
+                # Output({'type': 'feature-annotation-progress','index': ALL},'value'),
+                # Output({'type': 'feature-annotation-progress','index': ALL},'label'),
                 Output({'type': 'map-marker-div','index': ALL},'children'),
                 Output({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'value'),
                 Output({'type': f'{self.component_prefix}-label-comment-box', 'index': ALL}, 'value'),
@@ -813,7 +821,7 @@ class FeatureAnnotation(Tool):
         )
 
     def update_slide(self, slide_selection,vis_data):
-
+        
         if not any([i['value'] or i['value']==0 for i in ctx.triggered]):
             raise exceptions.PreventUpdate
         
@@ -1020,8 +1028,8 @@ class FeatureAnnotation(Tool):
         #             structure_bboxes[f'{g["properties"]["name"]}_index'] = 0
 
         new_structure_bboxes = json.dumps(structure_bboxes)
-
-        return [structure_options], [new_structure_bboxes], [progress_value], [progress_label], [new_figure]
+        # [progress_value], [progress_label], 
+        return [structure_options], [new_structure_bboxes], [new_figure]
 
     # --- New Callbacks for Structured Labels ---
     def reset_structured_label(self, n_clicks, structured_labels_defs, item_id):
@@ -1263,327 +1271,208 @@ class FeatureAnnotation(Tool):
             raise ValueError("Please set the task identifier when calling the FeatureAnnotation class")
         return f"{self.task_identifier}_{base_structure_name}"
 
+
     def update_structure(
         self,
-        structure_drop_value,        # [name of annotation structure]
-        prev_click,                  # [prev_click_0, prev_click_1, ...]
-        next_click,                  # [next_click_0, next_click_1, ...]
-        current_structure_data,      # dict of bbox values for selected structure]
-        current_class_value,         # Not important right now. 
-        slide_information,           # [json_slide0, json_slide1, ...]           
+        structure_drop_value,
+        prev_click,
+        next_click,
+        goto_value, # ADDED: Value from the new input box
+        current_structure_data,
+        current_class_value,
+        slide_information,
         label_values_from_ui, 
-        input_ids,# [label_val0, label_val1, ...]
+        input_ids,
         label_comments_from_ui, 
         comment_ids,
         strucured_label_defs,
         session_data
     ):
+        """
+        This function handles all navigation for the FeatureAnnotation tool.
+        It updates the displayed structure based on Previous/Next clicks,
+        dropdown selection, or direct input from the new navigation box.
+        """
+        # Determine which component triggered this callback execution.
+        triggered_id = ctx.triggered_id['type'] if ctx.triggered_id else 'unknown'
 
+        # Prevent the callback from firing on initial page load.
         if not any([i['value'] for i in ctx.triggered]):
             raise exceptions.PreventUpdate
         
+        # --- 1. Load all necessary data from the app's current state ---
         slide_information = json.loads(get_pattern_matching_value(slide_information))
         current_structure_data = json.loads(get_pattern_matching_value(current_structure_data))
-        
         strucured_label_defs = strucured_label_defs if isinstance(strucured_label_defs, list) else [strucured_label_defs]
         
+        # Initialize UI component values for the case where we load a new, unlabeled region.
         num_defined_labels = len(strucured_label_defs)
-        
-        #This needs to be empty strings if we are navigating to a new annotation mask
         output_autoload_label_values = [""] * num_defined_labels
         output_autoload_label_comments = [""] * num_defined_labels
-        output_comment_collapse_is_open = [False] *  num_defined_labels
+        output_comment_collapse_is_open = [False] * num_defined_labels
         
-        #Get user_id if user is logged in else track it under guest login
+        # Get the user ID, or a guest ID if not logged in.
         try:
             user_id = session_data["current_user"]["_id"]
         except KeyError:
             user_id = GUEST_USER_ID
         
         structure_drop_value = get_pattern_matching_value(structure_drop_value)
-        
-        
         structure_names_in_data = [i['name'] for i in current_structure_data]
-        
-        if structure_drop_value not in structure_names_in_data:
-            print(f"Selected structure type {structure_drop_value} not found in current_structure_data name: {structure_names_in_data}")
-            raise exceptions.PreventUpdate
-        
-        #Data for the current selected structure_drop_value
-        current_struct_info = None
-        original_display_index = 0
-        
+
+        # If no structure type is selected from the dropdown, we can't proceed.
+        if not structure_drop_value or not current_structure_data or structure_drop_value not in structure_names_in_data:
+            # Clear the navigation box and stop the update.
+            return [no_update], [no_update], [None], ["of 0"], [[]], no_update, no_update, no_update
+
+        # --- 2. Navigation Logic: Determine the new region index to load ---
         struct_list_idx = structure_names_in_data.index(structure_drop_value)
         current_struct_info = current_structure_data[struct_list_idx]
         original_display_index = current_struct_info.get("index", 0)
+        num_total_bboxes = len(current_struct_info.get('bboxes', []))
         
-        bbox_being_displayed_str = None
-        if current_struct_info and current_struct_info.get('bboxes') and \
-            len(current_struct_info['bboxes']) > original_display_index:
-                bbox_coords = current_struct_info['bboxes'][original_display_index]
-                
-                #Invert y-coordinates before saving to preserve data correct slide pixels
-                bbox_coords_to_save = [bbox_coords[0], -bbox_coords[1], bbox_coords[2], -bbox_coords[3]]
-                bbox_being_displayed_str = json.dumps(sorted(bbox_coords_to_save))
-        
-        with get_db() as db:
-            regions_url = slide_information.get("regions_url", '')
-            
-            api_slide_id = self.extract_itemid_from_regions_url(regions_url)
-            
-            display_slide_name = slide_information.get('name', 'unknown_slide')
-            
-            db_slide = get_or_create_slide(db, api_slide_id=api_slide_id, display_name=display_slide_name)
-            
-            task_specific_annotation_file_type = self._get_task_specific_file_type(structure_drop_value)
-            #__DELETE__
-            print(f"[DEBUG] added slide with slide_id {db_slide.id} - {db_slide.slide_id}")
-            print(f"[DEBUG] Current Annotation Structure {task_specific_annotation_file_type }")
-            
-            
-            db_annotation_file = get_or_create_annotation_file(db, 
-                                                               slide_internal_id=db_slide.id,
-                                                               file_type=task_specific_annotation_file_type,
-                                                               is_required=True if structure_drop_value in ALWAYS_REQUIRED_STRUCTURE_TYPES else False
-                                                               )
+        # Default to the current index unless a navigation event tells us otherwise.
+        current_structure_index_for_load = original_display_index
 
-            # This code is here cos we need to track progress lazily (i.e when we encounter a new annoatation file that is "required" for completeness).
-            annotation_count = db.query(func.count(AnnotationData.id)).filter_by(annotation_file_id=db_annotation_file.id).scalar()
-            if annotation_count == 0 and current_struct_info and current_struct_info.get('bboxes'):
-                annotation_definitions = [
-                    {"annotation_idx": json.dumps(sorted(bbox)), "bbox": json.dumps(sorted(bbox))}
-                    for bbox in current_struct_info['bboxes']
-                ]
-                populate_annotations_from_file(
-                    db,
-                    annotation_file_id=db_annotation_file.id,
-                    annotation_definitions=annotation_definitions
-                )
-            
-            #__DELETE__
-            print(f"[DEBUG] added annotation_file to the database with id {db_annotation_file.id}")
-            
-            if any([i in ctx.triggered_id['type'] for i in ['feature-annotation-previous','feature-annotation-next']]) and bbox_being_displayed_str:
-                # Get/Create AnnotationData for the bbox_being_displayed
-                db_anno_data_to_save = get_annotation_by_idx(db, 
-                                                            annotation_file_id=db_annotation_file.id, 
-                                                            annotation_idx=bbox_being_displayed_str)
-                
-                print(f"[DEBUG] Annotation Record - {db_anno_data_to_save}")
-                #add the bbox entry into the database if it doesn't exist
-                
-                if not db_anno_data_to_save:
-                    created_annotations = populate_annotations_from_file(
-                        db,
-                        annotation_file_id=db_annotation_file.id,
-                        annotation_definitions=[{
-                            "annotation_idx": bbox_being_displayed_str,
-                            "bbox": bbox_being_displayed_str
-                        }]
-                    )
-                    print(f"[DEBUG] - created_annotations = {created_annotations}")
-                
-                    if created_annotations:
-                        db_anno_data_to_save = get_annotation_by_idx(db,
-                                                                    annotation_file_id=db_annotation_file.id,
-                                                                    annotation_idx=bbox_being_displayed_str)
-                        
-                if db_anno_data_to_save:
-                    print(input_ids)
-                    map_input_idx_to_list_pos = {item['index']: i for i, item in enumerate(input_ids)}
-                    map_comment_idx_to_list_pos = {item['index']: i for i, item in enumerate(comment_ids)}
-                    
-                    print(map_input_idx_to_list_pos)
-                    
-                    for i_def, label_def in enumerate(strucured_label_defs):
-                        
-                        label_name = label_def['name']
-                        
-                        input_list_pos = map_input_idx_to_list_pos.get(i_def)
-                        comment_list_pos = map_comment_idx_to_list_pos.get(i_def)
-                        
-                        value_to_save = label_values_from_ui[input_list_pos] if input_list_pos is not None else None
-                        comment_to_save = label_comments_from_ui[comment_list_pos] if comment_list_pos is not None else None
-                        
-                        value_str_to_save = ""
-                        #convert list type value to str for saving
-                        if isinstance(value_to_save, list):
-                            value_str_to_save = json.dumps(value_to_save)
-                        elif value_to_save is not None:
-                            value_str_to_save = str(value_to_save)
-                        else:
-                            #Can change to any other default value in the future here.
-                            pass
-                        print(f"[DEBUG] User {user_id}")
-                        #Comment is currently tied to the value - See this to revert or add other functionality in the future. s
-                        if (value_to_save is not None and value_to_save != "" and value_to_save != []) or (comment_to_save is not None and comment_to_save != "" and comment_to_save != []):
-                            label_annotation_and_update_progress(db,
-                                                        user_id=user_id,
-                                                        annotation_id=db_anno_data_to_save.id,
-                                                        label_name=label_name,
-                                                        label_value=value_str_to_save,
-                                                        label_comment=comment_to_save
-                                                        )
-                        else:
-                            deleted = delete_user_label_by_name(db,
-                                                      user_id=user_id,
-                                                      annotation_id=db_anno_data_to_save.id,
-                                                      label_name=label_name)
-                            if deleted:
-                                update_file_progress(db,
-                                                     user_id=user_id,
-                                                     annotation_file_id=db_annotation_file.id)
-            
-            current_structure_index_for_load = original_display_index #Default to current if not navigating
-            
-            if any([i in ctx.triggered_id['type'] for i in ['feature-annotation-structure-drop']]):
-                # Getting a new structure:
+        # Check which component triggered the callback and calculate the new index.
+        if 'feature-annotation-previous' in triggered_id:
+            if num_total_bboxes > 0:
+                # Go to the previous index, wrapping around to the end if at the beginning.
+                current_structure_index_for_load = (original_display_index - 1 + num_total_bboxes) % num_total_bboxes
+        
+        elif 'feature-annotation-next' in triggered_id:
+            if num_total_bboxes > 0:
+                # Go to the next index, wrapping around to the beginning if at the end.
+                current_structure_index_for_load = (original_display_index + 1) % num_total_bboxes
+        
+        elif 'feature-annotation-goto-input' in triggered_id:
+            goto_value_from_input = get_pattern_matching_value(goto_value)
+            # Check if user input is a valid number within the available range.
+            if goto_value_from_input:
+                goto_value_from_input = int(goto_value_from_input)
+            if goto_value_from_input is not None and 1 <= goto_value_from_input <= num_total_bboxes:
+                # User input is 1-based, so subtract 1 for the 0-based list index.
+                current_structure_index_for_load = goto_value_from_input - 1
+            else:
+                # If input is invalid (e.g., empty, out of range), just stay on the current index.
                 current_structure_index_for_load = original_display_index
 
-            elif 'feature-annotation-previous' in ctx.triggered_id['type']:
-                if not current_struct_info or not current_struct_info.get('bboxes'): raise exceptions.PreventUpdate
-                num_bboxes = len(current_struct_info['bboxes'])
-                if num_bboxes == 0: raise exceptions.PreventUpdate
-                current_structure_index_for_load = original_display_index - 1
-                if current_structure_index_for_load < 0:
-                    current_structure_index_for_load = num_bboxes - 1
-            
-            elif 'feature-annotation-next' in ctx.triggered_id['type']:
-                if not current_struct_info or not current_struct_info.get('bboxes'): raise exceptions.PreventUpdate
-                num_bboxes = len(current_struct_info['bboxes'])
-                if num_bboxes == 0: raise exceptions.PreventUpdate
-                current_structure_index_for_load = original_display_index + 1
-                if current_structure_index_for_load >= num_bboxes:
-                    current_structure_index_for_load = 0
-            
-            if current_struct_info:
-                current_struct_info['index'] = current_structure_index_for_load
-                #Assuming it's a list
-                current_structure_data[structure_names_in_data.index(structure_drop_value)] = current_struct_info
-            
-            #Get the bbox coordinates for the structure to load
-            bbox_to_load_coords = None
-            if current_struct_info and current_struct_info.get('bboxes') and \
-                len(current_struct_info['bboxes']) > current_structure_index_for_load:
-                    bbox_to_load_coords = current_struct_info['bboxes'][current_structure_index_for_load]
-            
-            if bbox_to_load_coords is None:
-                #End of Navigation or no bbox of this type
-                print(f"No bbox to load for {structure_drop_value} at index {current_structure_index_for_load}")
+        elif 'feature-annotation-structure-drop' in triggered_id:
+            # When a new structure type is chosen from the dropdown, reset to the first region.
+            current_structure_index_for_load = 0
                 
-                pass
+        # --- 3. Database Interaction: Save previous work and load new data ---
+        
+        # This block saves the labels for the structure you are navigating *away from*.
+        # It only runs if the user explicitly clicked "Previous" or "Next".
+        if any(s in triggered_id for s in ['feature-annotation-previous', 'feature-annotation-next']):
+            bbox_being_displayed_str = None
+            if current_struct_info.get('bboxes') and len(current_struct_info.get('bboxes')) > original_display_index:
+                bbox_coords = current_struct_info['bboxes'][original_display_index]
+                bbox_coords_to_save = [bbox_coords[0], -bbox_coords[1], bbox_coords[2], -bbox_coords[3]]
+                bbox_being_displayed_str = json.dumps(sorted(bbox_coords_to_save))
             
-            bbox_to_load_str = None
-            if bbox_to_load_coords:
-                #Invert y-coordinates before saving
-                bbox_to_load_coords_to_save = [bbox_to_load_coords[0], -bbox_to_load_coords[1],bbox_to_load_coords[2], -bbox_to_load_coords[3]]
-                bbox_to_load_str = json.dumps(sorted(bbox_to_load_coords_to_save))
-            
-            #Load user labels for the bbox region if it exists in DB
-            if bbox_to_load_str:
-                db_anno_data_to_load = get_annotation_by_idx(db,
-                                                             annotation_file_id=db_annotation_file.id,
-                                                             annotation_idx=bbox_to_load_str)
-                
-                #Check If the user annotation exists
-                if db_anno_data_to_load: 
+            if bbox_being_displayed_str:
+                with get_db() as db:
+                    regions_url = slide_information.get("regions_url", '')
+                    api_slide_id = self.extract_itemid_from_regions_url(regions_url)
+                    display_slide_name = slide_information.get('name', 'unknown_slide')
+                    db_slide = get_or_create_slide(db, api_slide_id=api_slide_id, display_name=display_slide_name)
                     
+                    task_specific_annotation_file_type = self._get_task_specific_file_type(structure_drop_value)
+                    db_annotation_file = get_or_create_annotation_file(db, slide_internal_id=db_slide.id, file_type=task_specific_annotation_file_type, is_required=True if structure_drop_value in ALWAYS_REQUIRED_STRUCTURE_TYPES else False)
+
+                    db_anno_data_to_save = get_annotation_by_idx(db, annotation_file_id=db_annotation_file.id, annotation_idx=bbox_being_displayed_str)
+
+                    if not db_anno_data_to_save:
+                        populate_annotations_from_file(db, annotation_file_id=db_annotation_file.id, annotation_definitions=[{"annotation_idx": bbox_being_displayed_str, "bbox": bbox_being_displayed_str}])
+                        db_anno_data_to_save = get_annotation_by_idx(db, annotation_file_id=db_annotation_file.id, annotation_idx=bbox_being_displayed_str)
+                    
+                    if db_anno_data_to_save:
+                        map_input_idx_to_list_pos = {item['index']: i for i, item in enumerate(input_ids)}
+                        map_comment_idx_to_list_pos = {item['index']: i for i, item in enumerate(comment_ids)}
+                        for i_def, label_def in enumerate(strucured_label_defs):
+                            label_name = label_def['name']
+                            input_list_pos = map_input_idx_to_list_pos.get(i_def)
+                            comment_list_pos = map_comment_idx_to_list_pos.get(i_def)
+                            value_to_save = label_values_from_ui[input_list_pos] if input_list_pos is not None else None
+                            comment_to_save = label_comments_from_ui[comment_list_pos] if comment_list_pos is not None else None
+                            value_str_to_save = json.dumps(value_to_save) if isinstance(value_to_save, list) else (str(value_to_save) if value_to_save is not None else "")
+                            
+                            if (value_to_save is not None and value_to_save != "" and value_to_save != []) or (comment_to_save is not None and comment_to_save != "" and comment_to_save != []) :
+                                label_annotation_and_update_progress(db, user_id=user_id, annotation_id=db_anno_data_to_save.id, label_name=label_name, label_value=value_str_to_save, label_comment=comment_to_save)
+                            else:
+                                if delete_user_label_by_name(db, user_id=user_id, annotation_id=db_anno_data_to_save.id, label_name=label_name):
+                                    update_file_progress(db, user_id=user_id, annotation_file_id=db_annotation_file.id)
+
+        # Update the component's internal state with the new index.
+        if current_struct_info:
+            current_struct_info['index'] = current_structure_index_for_load
+            current_structure_data[struct_list_idx] = current_struct_info
+
+        # This block loads the labels for the new structure that will be displayed.
+        bbox_to_load_coords = None
+        if current_struct_info and current_struct_info.get('bboxes') and len(current_struct_info['bboxes']) > current_structure_index_for_load:
+            bbox_to_load_coords = current_struct_info['bboxes'][current_structure_index_for_load]
+        
+        if bbox_to_load_coords:
+            bbox_to_load_str = json.dumps(sorted([bbox_to_load_coords[0], -bbox_to_load_coords[1], bbox_to_load_coords[2], -bbox_to_load_coords[3]]))
+            with get_db() as db:
+                regions_url = slide_information.get("regions_url", '')
+                api_slide_id = self.extract_itemid_from_regions_url(regions_url)
+                db_slide = get_or_create_slide(db, api_slide_id=api_slide_id)
+                task_specific_annotation_file_type = self._get_task_specific_file_type(structure_drop_value)
+                db_annotation_file = get_or_create_annotation_file(db, slide_internal_id=db_slide.id, file_type=task_specific_annotation_file_type)
+                db_anno_data_to_load = get_annotation_by_idx(db, annotation_file_id=db_annotation_file.id, annotation_idx=bbox_to_load_str)
+                if db_anno_data_to_load:
                     map_input_idx_to_list_pos = {item['index']: i for i, item in enumerate(input_ids)}
                     map_comment_idx_to_list_pos = {item['index']: i for i, item in enumerate(comment_ids)}
-                    
                     for i, label_def in enumerate(strucured_label_defs):
                         label_name = label_def['name']
-                        user_label_entry = get_user_label_by_name(db,
-                                                                  user_id=user_id,
-                                                                  annotation_id=db_anno_data_to_load.id,
-                                                                  label_name=label_name)
-                        
-                        #If entry exists - Handle it for UI for different types of input
+                        user_label_entry = get_user_label_by_name(db, user_id=user_id, annotation_id=db_anno_data_to_load.id, label_name=label_name)
                         if user_label_entry:
                             label_type = label_def.get('type')
+                            value_from_db = user_label_entry.label_value
                             if label_type == 'checkbox':
                                 try:
-                                    output_autoload_label_values[map_input_idx_to_list_pos.get(i)] = json.loads(user_label_entry.label_value)
-                                except json.JSONDecodeError:
-                                    output_autoload_label_values[map_input_idx_to_list_pos.get(i)] = [] #Default for checkbox
+                                    output_autoload_label_values[map_input_idx_to_list_pos.get(i)] = json.loads(value_from_db)
+                                except (json.JSONDecodeError, TypeError):
+                                    output_autoload_label_values[map_input_idx_to_list_pos.get(i)] = []
                             else:
-                                output_autoload_label_values[map_input_idx_to_list_pos.get(i)] = user_label_entry.label_value
-                            output_autoload_label_comments[map_comment_idx_to_list_pos.get(i)] = user_label_entry.label_comment if user_label_entry.label_comment is not None else ""
-                            output_comment_collapse_is_open[map_comment_idx_to_list_pos.get(i)] = True if user_label_entry.label_comment != "" else False
-                
-                #No annotation data exists - creating new entry in DB
-                else:
-                    if bbox_to_load_str:
-                        populate_annotations_from_file(db,
-                                                       annotation_file_id=db_annotation_file.id,
-                                                       annotation_definitions=[{
-                                                           "annotation_idx": bbox_to_load_str,
-                                                           "bbox": bbox_to_load_str
-                                                       }])
-                    
-        progress_value = 0
-        progress_label = '0/0' 
-        # save_all_style = {'display':'none'}      
+                                output_autoload_label_values[map_input_idx_to_list_pos.get(i)] = value_from_db
+                            
+                            output_autoload_label_comments[map_comment_idx_to_list_pos.get(i)] = user_label_entry.label_comment or ""
+                            output_comment_collapse_is_open[map_comment_idx_to_list_pos.get(i)] = bool(user_label_entry.label_comment)
 
-        if current_struct_info and current_struct_info.get('bboxes') and len(current_struct_info['bboxes']) > 0:
-             num_total_bboxes = len(current_struct_info['bboxes'])
-             progress_value = round(100 * ((current_structure_index_for_load + 1) / num_total_bboxes)) if num_total_bboxes > 0 else 0
-             progress_label = f'{current_structure_index_for_load + 1}/{num_total_bboxes}'
-            #  if (current_structure_index_for_load + 1) == num_total_bboxes:
-            #     save_all_style = {'display':'block'}
+        # --- 4. Prepare and Return Outputs for the UI ---
+        image_region, marker_centroid = self.get_structure_region(bbox_to_load_coords if bbox_to_load_coords else [], slide_information)
 
-
-        image_region, marker_centroid = self.get_structure_region(bbox_to_load_coords if bbox_to_load_coords else [], slide_information) # Pass actual coords
-
-        # Figure Styling
-        current_class_value = get_pattern_matching_value(current_class_value)
-        line_color = 'rgb(0,0,0)'
-        fill_color = 'rgba(0,0,0,0.2)'
-        if current_class_value:
-            line_color = current_class_value
-            fill_color = current_class_value.replace('(','a(').replace(')',',0.2)')
-
+        # Create the figure to display the image region.
         image_figure = go.Figure(px.imshow(np.array(image_region)))
-        image_figure.update_layout(
-            margin={'l':0,'r':0,'t':0,'b':0},
-            xaxis={'showticklabels':False,'showgrid':False},
-            yaxis={'showticklabels':False,'showgrid':False},
-            dragmode='drawclosedpath',
-            newshape_line_color=line_color,
-            newshape_fillcolor=fill_color
-        )
+        image_figure.update_layout(margin={'l':0,'r':0,'t':0,'b':0}, xaxis={'showticklabels':False,'showgrid':False}, yaxis={'showticklabels':False,'showgrid':False}, dragmode='drawclosedpath')
 
+        # Create a marker on the main slide map to show the location of the currently viewed region.
         new_markers_div = []
-        if marker_centroid and not (marker_centroid[0] is None or marker_centroid[1] is None) : # Ensure centroid is valid
-            new_markers_div = [
-                dl.GeoJSON(
-                    data = {
-                        'type': 'FeatureCollection',
-                        'features': [{
-                            'type': 'Feature',
-                            'geometry': {'type': 'Point', 'coordinates': marker_centroid},
-                            'properties': {'name': 'featureAnnotation Marker', '_id': uuid.uuid4().hex[:24]}
-                        }]
-                    },
-                    pointToLayer=self.js_namespace("markerRender"),
-                    onEachFeature=self.js_namespace("tooltipMarker"),
-                    id={'type': f'{self.component_prefix}-feature-annotation-markers','index': 0},
-                    eventHandlers={'dblclick': self.js_namespace('removeMarker')}
-                )
-            ]
+        if marker_centroid and not (marker_centroid[0] is None or marker_centroid[1] is None):
+            new_markers_div = [dl.GeoJSON(data={'type': 'FeatureCollection', 'features': [{'type': 'Feature', 'geometry': {'type': 'Point', 'coordinates': marker_centroid}, 'properties': {'name': 'featureAnnotation Marker', '_id': uuid.uuid4().hex[:24]}}]}, pointToLayer=self.js_namespace("markerRender"), onEachFeature=self.js_namespace("tooltipMarker"), id={'type': f'{self.component_prefix}-feature-annotation-markers','index': 0}, eventHandlers={'dblclick': self.js_namespace('removeMarker')})]
         
+        # Set the value for the input box to the new region number (1-based for user display).
+        new_goto_value = current_structure_index_for_load + 1 if num_total_bboxes > 0 else None
+        # Set the text for the label next to the input box, e.g., "of 150".
+        total_label_text = f"of {num_total_bboxes}"
+
+        # Return all the updated values to the app's frontend components.
         return (
             [image_figure],
             [json.dumps(current_structure_data)], 
-            [progress_value],
-            [progress_label],
+            [new_goto_value],
+            [total_label_text],
             new_markers_div,
             output_autoload_label_values, 
             output_autoload_label_comments,
-            # [save_all_style],
             output_comment_collapse_is_open
         )
-
+        
     #Temporary function until I figure out to add item_id into the information store.
     def extract_itemid_from_regions_url(self,url:str) -> str:
         if not url: 

@@ -1271,18 +1271,24 @@ class DatasetBuilder(DSATool):
                     prev_vis_data_in_handler.append(i)
             else:
                 prev_vis_data_in_handler.append(i)
-
+        
+        #Adding login info to annotations
+        if not current_vis_data['current_user']:
+            raise exceptions.PreventUpdate
+        
+        user_token = current_vis_data['current_user']['token']
+        
         # Adding new slides to current_vis_data
         new_slide_info = []
         for s in new_slide_data['selected_slides']:
             if not 'local' in s:
                 slide_info = self.handler.gc.get(f'/item/{s}')
-                annotations_metadata_url = f'{self.handler.girderApiUrl}/annotation/?itemId={s}'
+                annotations_metadata_url = f'{self.handler.girderApiUrl}/annotation/?itemId={s}&token={user_token}'
                 annotations_metadata = requests.get(annotations_metadata_url).json()
                 if not type(annotations_metadata)==list:
                     annotations_metadata = [annotations_metadata]
                     
-                annotations_geojson_url = [f'{self.handler.girderApiUrl}/annotation/{a["_id"]}/geojson' for a in annotations_metadata]
+                annotations_geojson_url = [f'{self.handler.girderApiUrl}/annotation/{a["_id"]}/geojson?token={user_token}' for a in annotations_metadata]
 
 
                 new_slide_info.append(

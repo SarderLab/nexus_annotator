@@ -301,8 +301,9 @@ class Visualization:
             else:
                 # Otherwise, return a list of clickable links for valid pages
                 not_found_page = html.Div([
-                    html.H1('Uh oh!'),
-                    html.H2(f'The page: {pathname}, is not in the current layout!'),
+                    # html.H1('Uh oh!'),
+                    # html.H2(f'The page: {pathname}, is not in the current layout!'),
+                    html.H2(f"Let's get Annotating!"),
                     html.Hr()
                 ] + [
                     html.P(html.A(page,href=page))

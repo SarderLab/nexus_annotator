@@ -309,7 +309,7 @@ def get_slide_progress_summary_for_user(db: Session, user_id: str, slide_interna
         })
 
     if total_annotations_for_slide == 0: 
-        return 0.0, False, [] # If no files were processed (e.g. all filtered out, or no progress entries made)
+        return 0.0, True if not files_to_check else False, [] # If no files were processed (e.g. all filtered out, or no progress entries made)
 
     average_completeness = (total_labeled_annotations_for_slide / total_annotations_for_slide) * 100 if total_annotations_for_slide > 0 else 0
     return average_completeness, all_completed_flag, progress_details
