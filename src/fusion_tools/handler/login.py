@@ -50,8 +50,58 @@ class DSALoginComponent(DSATool):
 
         self.get_callbacks()
     
-    def update_layout(self, session_data:dict, use_prefix:bool):
+    def _auth_button_stack(self,session_data: dict) -> dbc.Stack:
         
+        logged_in = "current_user" in session_data
+        
+        login_btn = dbc.Button(
+            "Login",
+            className="d-grid col-6 mx-auto",
+            color="success",
+            id={"type": "dsa-login-button", "index": 0 },
+            n_clicks=0,
+            disabled=logged_in
+        )
+        
+        login_tip = dbc.Tooltip(
+            "For registered users, login to view previous uploads or shared collections!",
+            target={"type": "dsa-login-button", "index": 0},
+            placement="top"
+        )
+        
+        #Switch between Register and logout
+        if logged_in:
+            second_btn = dbc.Button(
+                "Logout",
+                className="d-grid col-6 mx-auto",
+                color="danger",
+                id={"type": "dsa-logout-button", "index": 0},
+                n_clicks=0
+            )
+            second_tip = dbc.Tooltip(
+                "Logout and clear local annotation session",
+                target={"type": "dsa-logout-button", "index": 0},
+                placement="top"
+            )
+        else:
+            second_btn = dbc.Button(
+                "Create an Account",
+                className="d-grid col-6 mx-auto",
+                color="warning",
+                id={"type": "dsa-login-create-account-button", "index": 0},
+                n_clicks=0
+            )
+            second_tip = dbc.Tooltip(
+                "Create an account on Athena to upload slides and access data",
+                target={"type": "dsa-login-create-account-button", "index": 0},
+                placement="top"
+            )
+        
+        return dbc.Stack(
+            [login_btn, login_tip, second_btn, second_tip], direction="horizontal", gap=2
+        )
+            
+    def update_layout(self, session_data:dict, use_prefix:bool):
                 
         layout = html.Div([
             html.H4(
@@ -64,30 +114,11 @@ class DSALoginComponent(DSATool):
             html.Div(
                 id = {'type': 'dsa-login-div','index': 0},
                 children = [
-                    dbc.Stack([
-                        dbc.Button(
-                            'Login',
-                            className = 'd-grid col-6 mx-auto',
-                            color = 'success',
-                            id = {'type': 'dsa-login-button','index': 0}
-                        ),
-                        dbc.Tooltip(
-                            'For registered users, login to view your previous uploads or shared collections!',
-                            target = {'type': 'dsa-login-button','index': 0},
-                            placement='top'
-                        ),
-                        dbc.Button(
-                            'Create an Account',
-                            className = 'd-grid col-6 mx-auto',
-                            color = 'warning',
-                            id = {'type': 'dsa-login-create-account-button','index': 0}
-                        ),
-                        dbc.Tooltip(
-                            'Create an account in order to upload slides to the DSA instance, to access user surveys, or to share data!',
-                            target = {'type': 'dsa-login-create-account-button','index': 0},
-                            placement='top'
-                        )
-                    ],direction='horizontal',gap=2)
+                    dbc.Stack(
+                        self._auth_button_stack(session_data).children,   # <- keeps identical layout tree
+                        direction="horizontal",
+                        gap=2
+                    ),
                 ]
             )
         ],style = {'padding': '10px 10px 10px 10px'})
@@ -161,6 +192,21 @@ class DSALoginComponent(DSATool):
                 Output('anchor-vis-store','data')
             ]
         )(self.submit_create_account)
+    
+        self.blueprint.callback(
+            [
+                Input({'type': "dsa-logout-button", "index": ALL}, "n_clicks")
+            ],
+            [
+                State("anchor-vis-store", "data"),
+            ],
+            [
+                Output("anchor-vis-store", "data"),
+                Output({"type": "dsa-login-current-user","index":ALL}, "children", allow_duplicate=True),
+                Output({"type":"dsa-login-div","index":ALL}, "children", allow_duplicate=True)
+            ],
+            prevent_initial_call=True
+        )(self._logout_user)
         
     def display_login_fields(self, login_clicked, create_account_clicked, back_clicked):
         """Displaying login fields depending on if login, create account, or back is clicked
@@ -391,6 +437,18 @@ class DSALoginComponent(DSATool):
             ],direction='horizontal',gap=2)
 
         return [new_children]
+    
+    def _logout_user(self,n_clicks, session_data_json):
+        if not any(i["value"] for i in ctx.triggered):
+            raise exceptions.PreventUpdate
+        session = json.loads(session_data_json or "{}")
+        session.pop("current_user", None)
+        
+        new_children = self._auth_button_stack(session)
+        
+        return json.dumps(session), ["Welcome Guest"], [new_children]
+        
+    
     
     def submit_login(self, login_clicked,username_input, password_input, session_data):
         
