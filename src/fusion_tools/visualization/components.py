@@ -509,7 +509,7 @@ class Visualization:
             dark=True,
             color='dark',
             sticky='fixed',
-            style={'marginBottom':'20px'}
+            style={'marginBottom':'5px'}
         )
 
         vis_data = html.Div(
@@ -890,7 +890,7 @@ class Visualization:
             h.load(h_idx)
 
         header_components = html.Div([
-            html.Hr(),
+            # html.Hr(),
             dbc.Modal(
                 id = 'header-modal',
                 centered = True,
@@ -904,7 +904,7 @@ class Visualization:
             ),
             dbc.Row([
                 dbc.Col([
-                    dbc.NavbarToggler(id = 'header-toggler'),
+                    # dbc.NavbarToggler(id = 'header-toggler'),
                     dbc.Collapse(
                         dbc.Nav([
                             dbc.NavItem(
@@ -923,8 +923,8 @@ class Visualization:
                         is_open = True
                     )
                 ])
-            ]),
-            html.Hr()
+            ], style={'marginBottom':'5px'}),
+            # html.Hr()
         ])
 
         return header_components
