@@ -48,6 +48,9 @@ from fusion_tools.database.crud import *
 ALWAYS_REQUIRED_STRUCTURE_TYPES = ['non_globally_sclerotic_glomeruli', 'globally_sclerotic_glomeruli']
 GUEST_USER_ID = "0000000000"
 
+COL1 = 'col1'
+COL2 = 'col2'
+
 class FeatureAnnotation(Tool):
     """Enables annotation (drawing) on top of structures in the SlideMap using a separate interface.
 
@@ -265,11 +268,18 @@ class FeatureAnnotation(Tool):
                 if i < num_total_items - 1: # Add Hr if not the *overall* last item
                     item_package.append(html.Hr(className="my-2"))
 
+            #Temporary fix for column ordering - Need something a bit more general later. 
+                if label_item.get('order', None):
+                    if label_item['order'] == COL1:
+                        column1_items.extend(item_package)
+                    elif label_item['order'] == COL2:
+                        column2_items.extend(item_package)
                 # Distribute to columns
-                if i % 2 == 0:
-                    column1_items.extend(item_package)
                 else:
-                    column2_items.extend(item_package)
+                    if i % 2 == 0:
+                        column1_items.extend(item_package)
+                    else:
+                        column2_items.extend(item_package)
             
             # Add the row that contains the two columns
             current_labels_rows_components.append(
@@ -306,18 +316,18 @@ class FeatureAnnotation(Tool):
             dcc.Store(id={'type': f'{self.component_prefix}-structured-labels-defs-store', 'index': 0}, data=structured_labels_data),
             dbc.Card([
                 dbc.CardBody([
-                    dbc.Row(
-                        dbc.Col(
-                            html.H3('Feature Annotation')
-                        )
-                    ),
-                    html.Hr(),
-                    dbc.Row(
-                        dbc.Col(
-                            'Used for annotating (drawing) on top of structures in the SlideMap'
-                        )
-                    ),
-                    html.Hr(),
+                    # dbc.Row(
+                    #     dbc.Col(
+                    #         html.H3('Feature Annotation')
+                    #     )
+                    # ),
+                    # html.Hr(),
+                    # dbc.Row(
+                    #     dbc.Col(
+                    #         'Used for annotating (drawing) on top of structures in the SlideMap'
+                    #     )
+                    # ),
+                    # html.Hr(),
                     dbc.Row([
                         dbc.Col([
                             dbc.Label('Select structure: ',html_for = {'type': 'feature-annotation-structure-drop','index': 0})
