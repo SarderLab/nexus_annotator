@@ -50,6 +50,7 @@ GUEST_USER_ID = "0000000000"
 
 COL1 = 'col1'
 COL2 = 'col2'
+COL3 = 'col3'
 
 class FeatureAnnotation(Tool):
     """Enables annotation (drawing) on top of structures in the SlideMap using a separate interface.
@@ -227,13 +228,20 @@ class FeatureAnnotation(Tool):
                     ], md = 2)
                 ])
             ]
-        
+        def get_labelname_and_dots(label_item):
+            if 'name' in label_item and label_item['name'] != '':
+                return dbc.Col([
+                            dbc.Label(label_item['name'], style={'fontWeight': 'bold'}) ,
+                            dbc.Button(html.I(className="fas fa-comment-dots", style={'color': 'blue'}), id={'type': f'{self.component_prefix}-label-comment-toggle', 'index': i}, color="light", className="ms-2 p-1", size="sm")
+                ],md=5, className="d-flex align-items-center")
+            return []
         current_labels_rows_components = []
         if len(structured_labels_data) > 0:
             current_labels_rows_components.append(dbc.Row(dbc.Col(html.H5("Current Labels", className="mt-3 mb-2"))))
 
             column1_items = []
             column2_items = []
+            column3_items = []
             
             num_total_items = len(structured_labels_data)
 
@@ -242,10 +250,7 @@ class FeatureAnnotation(Tool):
                 
                 # This is the original label_row structure
                 label_item_component = dbc.Row([
-                    dbc.Col([
-                        dbc.Label(label_item['name'], style={'fontWeight': 'bold'}),
-                        dbc.Button(html.I(className="fas fa-comment-dots", style={'color': 'blue'}), id={'type': f'{self.component_prefix}-label-comment-toggle', 'index': i}, color="light", className="ms-2 p-1", size="sm")
-                    ], md=5, className="d-flex align-items-center"), # md=5 applies within this specific row
+                    get_labelname_and_dots(label_item),
                     dbc.Col([
                         html.Div([
                             input_component,
@@ -274,6 +279,8 @@ class FeatureAnnotation(Tool):
                         column1_items.extend(item_package)
                     elif label_item['order'] == COL2:
                         column2_items.extend(item_package)
+                    elif label_item['order'] == COL3:
+                        column3_items.extend(item_package)
                 # Distribute to columns
                 else:
                     if i % 2 == 0:
@@ -284,8 +291,9 @@ class FeatureAnnotation(Tool):
             # Add the row that contains the two columns
             current_labels_rows_components.append(
                 dbc.Row([
-                    dbc.Col(column1_items, md=6), # Each column takes half the width on medium screens and up
-                    dbc.Col(column2_items, md=6)
+                    dbc.Col(column1_items, md=4), 
+                    dbc.Col(column2_items, md=4),
+                    dbc.Col(column3_items, md=4)
                 ])
             )
 
