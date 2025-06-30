@@ -52,7 +52,7 @@ class DSALoginComponent(DSATool):
     
     def _auth_button_stack(self,session_data: dict) -> dbc.Stack:
         
-        logged_in = "current_user" in session_data
+        logged_in = "current_user" in session_data and 'login' in session_data['current_user']
         
         login_btn = dbc.Button(
             "Login",
@@ -107,7 +107,7 @@ class DSALoginComponent(DSATool):
             html.H4(
                 id = {'type': 'dsa-login-current-user','index': 0},
                 children = [
-                    f'Welcome, {session_data["current_user"]["login"]}!' if "current_user" in session_data else 'Welcome, Guest!'
+                    f'Welcome, {session_data["current_user"]["login"]}!' if "current_user" in session_data and 'login' in session_data['current_user'] else 'Welcome, Guest!'
                 ]
             ),
             html.Hr(),
@@ -203,7 +203,8 @@ class DSALoginComponent(DSATool):
             [
                 Output("anchor-vis-store", "data"),
                 Output({"type": "dsa-login-current-user","index":ALL}, "children", allow_duplicate=True),
-                Output({"type":"dsa-login-div","index":ALL}, "children", allow_duplicate=True)
+                Output({"type":"dsa-login-div","index":ALL}, "children", allow_duplicate=True),
+                Output("anchor-page-url", "pathname")
             ],
             prevent_initial_call=True
         )(self._logout_user)
@@ -442,11 +443,14 @@ class DSALoginComponent(DSATool):
         if not any(i["value"] for i in ctx.triggered):
             raise exceptions.PreventUpdate
         session = json.loads(session_data_json or "{}")
-        session.pop("current_user", None)
+        session.update({
+            "current": [],
+            "current_user": {}
+        })
         
         new_children = self._auth_button_stack(session)
         
-        return json.dumps(session), ["Welcome Guest"], [new_children]
+        return json.dumps(session), ["Welcome Guest"], [new_children], '/app'
         
     
     
