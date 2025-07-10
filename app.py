@@ -7,6 +7,10 @@ from src.fusion_tools.components import SlideMap, FeatureAnnotation
 from src.fusion_tools.database.core import initialize_database
 from src.fusion_tools.utils.types import TaskIdentifiers, UserCollectionAccessLevel
 
+COL1 = 'col1'
+COL2 = 'col2'
+COL3 = 'col3'
+
 dn_feature_schema = {
     'labels':[
         {
@@ -14,70 +18,134 @@ dn_feature_schema = {
             'type': 'checkbox',
             'options': [
                 'Yes',
-            ]
-        },
-        {
-            'name': '+ Nodules',
-            'type': 'checkbox',
-            'options': [
-                'Yes',
-            ]
-        },
-        {
-            'name': 'Microaneurysm',
-            'type': 'checkbox',
-            'options': [
-                'Yes',
-            ]
-        },
-        {
-            'name': 'Periglomerular Fibrosis',
-            'type': 'checkbox',
-            'options': [
-                'Yes'
-            ]
+            ],
+            'order': COL1
         },
         {
             'name': 'Mesangial Hypercellularity',
             'type': 'checkbox',
             'options': [
+                'Yes',
+            ],
+            'order': COL2
+        },
+        {
+            'name': 'Cellular Nodules',
+            'type': 'checkbox',
+            'options': [
+                'Yes',
+            ],
+            'order': COL1
+        },
+        {
+            'name': 'Paucicellular Nodules',
+            'type': 'checkbox',
+            'options': [
                 'Yes'
-            ]
+            ],
+            'order': COL2
+        },
+        {
+            'name': 'Microaneurysm +/- cellular',
+            'type': 'checkbox',
+            'options': [
+                'Yes'
+            ],
+            'order': COL1
+        },
+        {
+            'name': 'Capillary wall thickening',
+            'type': 'checkbox',
+            'options': [
+                'Yes'
+            ],
+            'order': COL2
         },
         {
             'name': 'Glomerular Hylanosis',
             'type': 'checkbox',
             'options': [
                 'Yes'
-            ]
+            ],
+            'order': COL2
+        },
+        {
+            'name': 'Not a glom?',
+            'type': 'checkbox',
+            'options': [
+                'Yes'
+            ],
+            'order': COL3
+        },
+        {
+            'name': 'Has Artifact?',
+            'type': 'checkbox',
+            'options': [
+                'Yes'
+            ],
+            'order': COL3
+        },
+        {
+            'name': 'Periglomerular Fibrosis',
+            'type': 'checkbox',
+            'options': [
+                'Yes'
+            ],
+            'order': COL1
         },
         {
             'name': 'Capsular Drops',
             'type': 'checkbox',
             'options': [
                 'Yes'
-            ]
-        },
-        {
-            'name': 'GBM Thickening',
-            'type': 'checkbox',
-            'options': [
-                'Yes'
-            ]
+            ],
+            'order': COL2
         },
         {
             'name': 'Neovascularization',
             'type': 'checkbox',
             'options': [
                 'Yes'
-            ]
+            ],
+            'order': COL1
         },
         {
-            'name': 'Immune Cells',
+            'name': 'Immune cells',
             'type': 'checkbox',
             'options': [
                 'Yes'
-            ]
+            ],
+            'order': COL2
+        },
+        {
+            'name': 'Global Sceloris',
+            'type': 'checkbox',
+            'options': [
+                'Yes'
+            ],
+            'order': COL3
+        },
+        {
+            'name': 'Histologically Unremarkable',
+            'type': 'checkbox',
+            'options': [
+                'Yes'
+            ],
+            'order': COL3
+        },
+        {
+            'name': 'Abnormal/Not DN',
+            'type': 'checkbox',
+            'options': [
+                'Yes'
+            ],
+            'order': COL3
+        },
+        {
+            'name': 'Comments',
+            'type': 'textarea',
+            'placeholder': "Additional comments...",
+            'order': COL3
         }
     ]
 }
@@ -91,7 +159,8 @@ fsgs = {
             'options': [
                 'Present, FSGS',
                 'Abnormal, not FSGS'
-            ]
+            ],
+            'order': COL1
         },
         {
             'name': 'FSGS',
@@ -101,47 +170,101 @@ fsgs = {
                 "Collapsing",
                 "NOS",
                 "Tip lesion"
-            ]
+            ],
+            'order': COL2
         },
         {
             'name': 'Hyalinosis',
             'type': 'checkbox',
             'options': [
                 'Yes',
-            ]
+            ],
+            'order': COL1
         },
         {
             'name': 'Foam cells',
             'type': 'checkbox',
             'options': [
                 'Yes'
-            ]
+            ],
+            'order': COL1
         },
         {
             'name': 'Podocyte capping',
             'type': 'checkbox',
             'options': [
                 'Yes'
-            ]
+            ],
+            'order': COL1
         },
         {
             'name': 'Adhesion to Bowman\'s capsule',
             'type': 'checkbox',
             'options': [
                 'Yes'
-            ]
+            ],
+            'order': COL1
+        },
+        {
+            'name': 'Global Sclerosis',
+            'type': 'checkbox',
+            'options': [
+                'Yes'
+            ],
+            'order': COL2
+        },
+        {
+            'name': 'Periglomerular Fibrosis',
+            'type': 'checkbox',
+            'options': [
+                'Yes'
+            ],
+            'order': COL2
+        },
+        {
+            'name': 'Histologically Unremarkable',
+            'type': 'checkbox',
+            'options': [
+                'Yes'
+            ],
+            'order': COL2
+        },
+        {
+            'name': 'Not a Glom?',
+            'type': 'checkbox',
+            'options': [
+                'Yes'
+            ],
+            'order': COL3
+        },
+        {
+            'name': 'Has Artifact?',
+            'type': 'checkbox',
+            'options': [
+                'Yes'
+            ],
+            'order': COL3
+        },
+        {
+            'name': "Suboptimal for interpretation",
+            'type': 'checkbox',
+            'options': [
+                'Yes'
+            ],
+            'order': COL3
         },
         {
             'name': 'Additional Comments',
             'type': 'textarea',
-            'placeholder': "Enter comments..."
+            'placeholder': "Enter comments...",
+            'order': COL3
         }
     ]
 }
 
 def main():
-    # os.environ["DATABASE_PATH"] = os.getenv('DATABASE_PATH', '/pubapps/athena/fstools/db' )
-    os.environ["DATABASE_PATH"] = os.getcwd()
+    os.environ["DATABASE_PATH"] = os.getenv('DATABASE_PATH', '/pubapps/athena/fstools/db' )
+    # os.environ["DATABASE_PATH"] = os.getcwd()
     dsa_path = os.getenv('DSA_URL', 'https://athena.rc.ufl.edu/api/v1')
     app_port = 8050 
     dsa_handler = DSAHandler(girderApiUrl=dsa_path)
@@ -160,8 +283,8 @@ def main():
         components = {
             "DN Labels": [
                         [
-                        (   SlideMap(task_identifier=task_identifiers['DN']),
-                            {'width': '4',} 
+                        (   SlideMap(),
+                            {'width': '3',} 
                         ),
                         (
                             [
@@ -169,12 +292,12 @@ def main():
                                     preset_schema=dn_feature_schema,
                                     annotations_format='rgb',
                                     labels_format='json',
-                                    # storage_path=os.getenv('STORAGE_PATH','/pubapps/athena/fstools/localannotations/dn/'),
-                                    storage_path=os.getcwd(),
+                                    storage_path=os.getenv('STORAGE_PATH','/pubapps/athena/fstools/localannotations/dn/'),
+                                    # storage_path=os.getcwd(),
                                     task_identifier=task_identifiers['DN']
                                 )
                             ],
-                            {'width': '8'}
+                            {'width': '9'}
                         )
                         ]
                  ], 
@@ -183,7 +306,7 @@ def main():
             ],
             "FSGS Annotation": [
                 [
-                        (   SlideMap(task_identifier=task_identifiers['FSGS']),
+                        (   SlideMap(),
                             {'width': '4',} 
                         ),
                         (
@@ -192,8 +315,8 @@ def main():
                                     preset_schema=fsgs,
                                     annotations_format='rgb',
                                     labels_format='json',
-                                    # storage_path=os.getenv('STORAGE_PATH','/pubapps/athena/fstools/localannotations/fsgs/'),
-                                    storage_path=os.getcwd(),
+                                    storage_path=os.getenv('STORAGE_PATH','/pubapps/athena/fstools/localannotations/fsgs/'),
+                                    # storage_path=os.getcwd(),
                                     task_identifier=task_identifiers['FSGS']
                                 )
                             ],
