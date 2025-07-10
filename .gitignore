@@ -9,4 +9,4 @@ src/*/__pycache__/*
 venv/*
 build/*
 *.egg-info/
-
+test.py
