@@ -262,6 +262,72 @@ fsgs = {
     ]
 }
 
+tx_schema = {
+    'labels': [
+        {
+            'name': 'Normal',
+            'type': 'checkbox',
+            'options': [
+                'Yes'
+            ],
+            'order': COL1
+        },
+        {
+            'name': 'Glomerulus',
+            'type': 'radio',
+            'options': [
+                'Normal',
+                'Sclerosed'
+            ],
+            'order': COL1
+        },
+        {
+            'name': 'Tubules',
+            'type': 'radio',
+            'options': [
+                'Normal',
+                'Mild Thickening',
+                'Severe Thickening',
+                'Severe Thickening with Wrinkling'
+            ],
+            'order': COL1
+        },
+        {
+            'name': 'Intimal Thickening',
+            'type': 'checkbox',
+            'options': [
+                'Present'
+            ],
+            'order': COL2
+        },
+        {
+            'name': 'Interstitial Expansion',
+            'type': 'radio',
+            'options': [
+                'Mild',
+                'Severe',
+                'Severe with Inflammation'
+            ],
+            'order': COL2
+        },
+        {
+            'name': 'Arterial Hylanosis',
+            'type': 'checkbox',
+            'options': [
+                'Present'
+            ],
+            'order': COL2
+        },
+        
+        {
+            'name': 'Additional Comments',
+            'type': 'textarea',
+            'placeholder': "Enter comments...",
+            'order': COL2
+        }
+    ]
+}
+
 def main():
     os.environ["DATABASE_PATH"] = os.getenv('DATABASE_PATH', '/pubapps/athena/fstools/db' )
     # os.environ["DATABASE_PATH"] = os.getcwd()
@@ -270,7 +336,8 @@ def main():
     dsa_handler = DSAHandler(girderApiUrl=dsa_path)
     task_identifiers: TaskIdentifiers = {
         'FSGS': 'FSGS',
-        'DN': 'DN'
+        'DN': 'DN',
+        'TX': 'TX'
     }
     
     access_level_def: UserCollectionAccessLevel = {
@@ -307,7 +374,7 @@ def main():
             "FSGS Annotation": [
                 [
                         (   SlideMap(),
-                            {'width': '4',} 
+                            {'width': '3',} 
                         ),
                         (
                             [
@@ -318,6 +385,26 @@ def main():
                                     storage_path=os.getenv('STORAGE_PATH','/pubapps/athena/fstools/localannotations/fsgs/'),
                                     # storage_path=os.getcwd(),
                                     task_identifier=task_identifiers['FSGS']
+                                )
+                            ],
+                            {'width': '8'}
+                        )
+                        ]
+            ],
+            "Tx Annotation": [
+                [
+                        (   SlideMap(),
+                            {'width': '4',} 
+                        ),
+                        (
+                            [
+                                FeatureAnnotation(
+                                    preset_schema=tx_schema,
+                                    annotations_format='rgb',
+                                    labels_format='json',
+                                    storage_path=os.getenv('STORAGE_PATH','/pubapps/athena/fstools/localannotations/tx/'),
+                                    # storage_path=os.getcwd(),
+                                    task_identifier=task_identifiers['TX']
                                 )
                             ],
                             {'width': '8'}

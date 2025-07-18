@@ -45,7 +45,7 @@ from fusion_tools.database.crud import *
 
 
 #Always required structure types - 
-ALWAYS_REQUIRED_STRUCTURE_TYPES = ['non_globally_sclerotic_glomeruli', 'globally_sclerotic_glomeruli']
+ALWAYS_REQUIRED_STRUCTURE_TYPES = ['non_globally_sclerotic_glomeruli', 'globally_sclerotic_glomeruli', 'patch']
 GUEST_USER_ID = "0000000000"
 
 COL1 = 'col1'
@@ -289,13 +289,21 @@ class FeatureAnnotation(Tool):
                         column2_items.extend(item_package)
             
             # Add the row that contains the two columns
-            current_labels_rows_components.append(
-                dbc.Row([
-                    dbc.Col(column1_items, md=4), 
-                    dbc.Col(column2_items, md=4),
-                    dbc.Col(column3_items, md=4)
-                ])
-            )
+            if column3_items:
+                current_labels_rows_components.append(
+                    dbc.Row([
+                        dbc.Col(column1_items, md=4), 
+                        dbc.Col(column2_items, md=4),
+                        dbc.Col(column3_items, md=4)
+                    ])
+                )
+            else:
+                current_labels_rows_components.append(
+                     dbc.Row([
+                        dbc.Col(column1_items, md=6), 
+                        dbc.Col(column2_items, md=6),
+                    ])
+                )
 
             # "Submit Labels" button remains below the columns
             current_labels_rows_components.append(
@@ -1015,7 +1023,7 @@ class FeatureAnnotation(Tool):
             raise exceptions.PreventUpdate
 
         #get_viewport = get_pattern_matching_value(get_viewport)
-        structure_options = [name for name in overlay_names if name in ALWAYS_REQUIRED_STRUCTURE_TYPES]
+        structure_options = [name for name in overlay_names if isinstance(name,str) and name.lower() in ALWAYS_REQUIRED_STRUCTURE_TYPES]
         structure_bboxes = {}
         # if get_viewport:
         #     slide_map_bounds = get_pattern_matching_value(slide_bounds)
