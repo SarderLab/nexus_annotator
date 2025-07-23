@@ -1446,9 +1446,10 @@ class FeatureAnnotation(Tool):
             with get_db() as db:
                 regions_url = slide_information.get("regions_url", '')
                 api_slide_id = self.extract_itemid_from_regions_url(regions_url)
-                db_slide = get_or_create_slide(db, api_slide_id=api_slide_id)
+                display_slide_name = slide_information.get('name', 'unknown_slide')
+                db_slide = get_or_create_slide(db, api_slide_id=api_slide_id,display_name=display_slide_name)
                 task_specific_annotation_file_type = self._get_task_specific_file_type(structure_drop_value)
-                db_annotation_file = get_or_create_annotation_file(db, slide_internal_id=db_slide.id, file_type=task_specific_annotation_file_type)
+                db_annotation_file = get_or_create_annotation_file(db, slide_internal_id=db_slide.id, file_type=task_specific_annotation_file_type, is_required=True if structure_drop_value in ALWAYS_REQUIRED_STRUCTURE_TYPES else False)
                 db_anno_data_to_load = get_annotation_by_idx(db, annotation_file_id=db_annotation_file.id, annotation_idx=bbox_to_load_str)
                 if db_anno_data_to_load:
                     map_input_idx_to_list_pos = {item['index']: i for i, item in enumerate(input_ids)}

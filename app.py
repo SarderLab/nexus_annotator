@@ -30,26 +30,20 @@ dn_feature_schema = {
             'order': COL2
         },
         {
-            'name': 'Cellular Nodules',
+            'name': 'Microaneurysm',
             'type': 'checkbox',
             'options': [
-                'Yes',
+                'Cellular',
+                'Acellular'
             ],
             'order': COL1
         },
-        {
-            'name': 'Paucicellular Nodules',
+         {
+            'name': 'Nodules',
             'type': 'checkbox',
             'options': [
-                'Yes'
-            ],
-            'order': COL2
-        },
-        {
-            'name': 'Microaneurysm +/- cellular',
-            'type': 'checkbox',
-            'options': [
-                'Yes'
+                'Cellular',
+                'Paucicellular'
             ],
             'order': COL1
         },
@@ -118,7 +112,7 @@ dn_feature_schema = {
             'order': COL2
         },
         {
-            'name': 'Global Sceloris',
+            'name': 'Global Sclerosis',
             'type': 'checkbox',
             'options': [
                 'Yes'
@@ -387,7 +381,7 @@ def main():
                                     task_identifier=task_identifiers['FSGS']
                                 )
                             ],
-                            {'width': '8'}
+                            {'width': '9'}
                         )
                         ]
             ],
