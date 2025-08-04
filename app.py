@@ -270,21 +270,28 @@ tx_schema = {
             'name': 'Glomerulus',
             'type': 'radio',
             'options': [
-                'Normal',
                 'Sclerosed'
             ],
             'order': COL1
         },
         {
-            'name': 'Tubules',
-            'type': 'radio',
+            'name': 'Tubular Basement Membrane',
+            "type": "radio",
             'options': [
-                'Normal',
-                'Mild Thickening',
-                'Severe Thickening',
-                'Severe Thickening with Wrinkling'
+                "Mild Thickening of Basement Membrane",
+                "Severe Thickening of Basement Membrane",
+                "Severe Thickening of Basement Membrane with Wrinkling"
+            ]
+        },
+        {
+            'name': 'Tubular Atrophy',
+            'type': 'checkbox',
+            'options': [
+                'Yes',
+                'With Thyroidization',
+                'With Endocrinization',
             ],
-            'order': COL1
+            'order': COL2
         },
         {
             'name': 'Intimal Thickening',
@@ -296,16 +303,15 @@ tx_schema = {
         },
         {
             'name': 'Interstitial Expansion',
-            'type': 'radio',
+            'type': 'checkbox',
             'options': [
-                'Mild',
-                'Severe',
-                'Severe with Inflammation'
+                'Present',
+                'With Inflammation'
             ],
             'order': COL2
         },
         {
-            'name': 'Arterial Hylanosis',
+            'name': 'Vascular Hylanosis',
             'type': 'checkbox',
             'options': [
                 'Present'
