@@ -3,6 +3,7 @@ from typing import TypedDict, Literal
 class TaskIdentifiers(TypedDict, total=False):
     FSGS: Literal["FSGS"]
     DN: Literal["DN"]
+    TX: Literal["TX"]
     
 class UserCollectionAccessLevel(TypedDict, total=False):
     """This is used to specify the accesslevel for the dataset builder class. 

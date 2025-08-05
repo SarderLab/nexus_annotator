@@ -374,7 +374,7 @@ def main():
             "FSGS Annotation": [
                 [
                         (   SlideMap(),
-                            {'width': '3',} 
+                            {'width': '3'} 
                         ),
                         (
                             [
@@ -394,7 +394,7 @@ def main():
             "Tx Annotation": [
                 [
                         (   SlideMap(),
-                            {'width': '4',} 
+                            {'width': '4'} 
                         ),
                         (
                             [
