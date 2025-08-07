@@ -332,18 +332,31 @@ class FeatureAnnotation(Tool):
             dcc.Store(id={'type': f'{self.component_prefix}-structured-labels-defs-store', 'index': 0}, data=structured_labels_data),
             dbc.Card([
                 dbc.CardBody([
-                    # dbc.Row(
-                    #     dbc.Col(
-                    #         html.H3('Feature Annotation')
-                    #     )
-                    # ),
-                    # html.Hr(),
-                    # dbc.Row(
-                    #     dbc.Col(
-                    #         'Used for annotating (drawing) on top of structures in the SlideMap'
-                    #     )
-                    # ),
-                    # html.Hr(),
+                dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            dbc.Progress(
+                                id={'type': 'feature-annotation-progress-bar', 'index': 0},
+                                style={
+                                    "height": "18px",
+                                    "backgroundColor": "#fff",     # White background
+                                    "border": "1px solid #d1d1d1",
+                                    "color": 0,
+                                    "fontWeight": "500"
+                                },
+                                color="black",
+                                striped=True,
+                                animated=True,
+                                value=0,
+                                label=""
+                            ),
+                        ],
+                        width=12
+                    ),
+                ],
+                className="mb-2 mt-2"
+            ),
                     dbc.Row([
                         dbc.Col([
                             dbc.Label('Select structure: ',html_for = {'type': 'feature-annotation-structure-drop','index': 0})
@@ -358,19 +371,6 @@ class FeatureAnnotation(Tool):
                                 style = {'width': '100%'}
                             )
                         ],md =7),
-                        # dbc.Col([
-                        #     html.A(
-                        #         html.I(
-                        #             className = 'fa-solid fa-rotate fa-2x',
-                        #             n_clicks = 0,
-                        #             id = {'type': 'feature-annotation-refresh-icon','index': 0}
-                        #         )
-                        #     ),
-                        #     dbc.Tooltip(
-                        #         target = {'type': 'feature-annotation-refresh-icon','index': 0},
-                        #         children = 'Click to refresh available structures'
-                        #     )
-                        # ],md = 2,align='center'),
                         dcc.Store(
                             id = {'type': 'feature-annotation-current-structures','index': 0},
                             storage_type='memory',
@@ -382,17 +382,6 @@ class FeatureAnnotation(Tool):
                             data = json.dumps({})
                         )
                     ],style = {'marginBottom': '10px'},align='center'),
-                    # dbc.Row([
-                    #     dmc.Switch(
-                    #         id = {'type':'feature-annotation-grab-viewport','index': 0},
-                    #         size = 'lg',
-                    #         onLabel = 'ON',
-                    #         offLabel = 'OFF',
-                    #         checked = False,
-                    #         label = 'Grab structures in Viewport',
-                    #         description = 'Select whether or not to only grab structures in the current viewport.'
-                    #     )
-                    # ]),
                     dbc.Row([
                         dbc.Col(
                             dbc.Label('Bounding Box Padding:'),
@@ -542,7 +531,9 @@ class FeatureAnnotation(Tool):
                 Output({'type': 'feature-annotation-slide-information','index':ALL},'data'),
                 Output({'type': 'feature-annotation-figure','index': ALL},'figure'),
                 #To clear dropdown value 
-                Output({'type': 'feature-annotation-structure-drop', 'index': ALL}, 'value')
+                Output({'type': 'feature-annotation-structure-drop', 'index': ALL}, 'value'),
+                Output({'type': 'feature-annotation-progress-bar', 'index': 0}, 'value'),
+                Output({'type': 'feature-annotation-progress-bar', 'index': 0}, 'label'),
             ],
             [
                 State('anchor-vis-store','data')
@@ -558,8 +549,6 @@ class FeatureAnnotation(Tool):
             [
                 Output({'type': 'feature-annotation-structure-drop','index': ALL},'options'),
                 Output({'type': 'feature-annotation-current-structures','index': ALL},'data'),
-                # Output({'type': 'feature-annotation-progress','index': ALL},'value'),
-                # Output({'type': 'feature-annotation-progress','index': ALL},'label'),
                 Output({'type': 'feature-annotation-figure','index': ALL},'figure')
             ],
             [
@@ -588,8 +577,8 @@ class FeatureAnnotation(Tool):
                 Output({'type': 'feature-annotation-goto-input', 'index': ALL}, 'value'),
                 Output({'type': 'feature-annotation-total-label', 'index': ALL}, 'children'),
                 
-                # Output({'type': 'feature-annotation-progress','index': ALL},'value'),
-                # Output({'type': 'feature-annotation-progress','index': ALL},'label'),
+                Output({'type': 'feature-annotation-progress-bar','index': 0},'value'),
+                Output({'type': 'feature-annotation-progress-bar','index': 0},'label'),
                 Output({'type': 'map-marker-div','index': ALL},'children'),
                 Output({'type': f'{self.component_prefix}-label-input-div', 'index': ALL}, 'value'),
                 Output({'type': f'{self.component_prefix}-label-comment-box', 'index': ALL}, 'value'),
@@ -862,7 +851,7 @@ class FeatureAnnotation(Tool):
         new_slide_data = json.dumps(new_slide_data)
         new_figure = go.Figure()
 
-        return [new_slide_data], [new_figure], [[]]
+        return [new_slide_data], [new_figure], [[]], 0, ""
     
     def save_label(self, label_name, label_text, image_bbox, slide_information, label_comment=None): # ADDED label_comment
         print(f" save_path is {self.storage_path}")
@@ -1360,6 +1349,61 @@ class FeatureAnnotation(Tool):
         # Default to the current index unless a navigation event tells us otherwise.
         current_structure_index_for_load = original_display_index
 
+        def populate_annotations_if_needed(db, annotation_file_id, annotation_definitions):
+            existing_ids = set(
+                row.annotation_idx
+            for row in db.query(AnnotationData).filter_by(annotation_file_id=annotation_file_id).all())
+            
+            missing_defs = [
+                ad for ad in annotation_definitions if ad['annotation_idx'] not in existing_ids
+            ]
+            if missing_defs:
+                populate_annotations_from_file(
+                    db,
+                    annotation_file_id=annotation_file_id,
+                    annotation_definitions=missing_defs
+                )
+            return len(missing_defs)
+        
+        def get_annotations_definitions_from_bboxes(bbox_list):
+            annotation_definitions = []
+            for bbox_coords in bbox_list:
+                bbox_coords_to_save = [
+                    bbox_coords[0],
+                    -bbox_coords[1],
+                    bbox_coords[2],
+                    -bbox_coords[3]
+                ]
+                bbox_being_displayed_str = json.dumps(sorted(bbox_coords_to_save))
+                annotation_definitions.append({
+                    'annotation_idx': bbox_being_displayed_str,
+                    'bbox': bbox_being_displayed_str
+                })
+            return annotation_definitions
+        
+        with get_db() as db:
+            regions_url = slide_information.get("regions_url", '')
+            db_slide = get_or_create_slide(
+                db, 
+                api_slide_id = self.extract_itemid_from_regions_url(regions_url),
+                display_name= slide_information.get('name', 'unknown')
+            )  
+            for struct in current_structure_data:
+                structure_name = struct['name']    
+                task_specific_file_type = self._get_task_specific_file_type(structure_name)
+                db_anno_file = get_or_create_annotation_file(
+                    db,
+                    slide_internal_id=db_slide.id,
+                    file_type=task_specific_file_type,
+                    is_required=True if structure_name in ALWAYS_REQUIRED_STRUCTURE_TYPES else False
+                )
+                annotation_definitions = get_annotations_definitions_from_bboxes(struct['bboxes'])
+                num_added = populate_annotations_if_needed(db, db_anno_file.id,annotation_definitions)
+                
+                # DEBUG: Query the total number in DB for this file
+                total_in_db = db.query(AnnotationData).filter_by(annotation_file_id=db_anno_file.id).count()
+                print(f"[DEBUG] Structure '{structure_name}': {num_added} new annotations added. Total in DB: {total_in_db}. Expected: {len(annotation_definitions)}")
+        
         # Check which component triggered the callback and calculate the new index.
         if 'feature-annotation-previous' in triggered_id:
             if num_total_bboxes > 0:
@@ -1441,6 +1485,7 @@ class FeatureAnnotation(Tool):
         if current_struct_info and current_struct_info.get('bboxes') and len(current_struct_info['bboxes']) > current_structure_index_for_load:
             bbox_to_load_coords = current_struct_info['bboxes'][current_structure_index_for_load]
         
+        num_total, num_annotated = 0, 0
         if bbox_to_load_coords:
             bbox_to_load_str = json.dumps(sorted([bbox_to_load_coords[0], -bbox_to_load_coords[1], bbox_to_load_coords[2], -bbox_to_load_coords[3]]))
             with get_db() as db:
@@ -1450,6 +1495,7 @@ class FeatureAnnotation(Tool):
                 db_slide = get_or_create_slide(db, api_slide_id=api_slide_id,display_name=display_slide_name)
                 task_specific_annotation_file_type = self._get_task_specific_file_type(structure_drop_value)
                 db_annotation_file = get_or_create_annotation_file(db, slide_internal_id=db_slide.id, file_type=task_specific_annotation_file_type, is_required=True if structure_drop_value in ALWAYS_REQUIRED_STRUCTURE_TYPES else False)
+                annotation_file_id = db_annotation_file.id
                 db_anno_data_to_load = get_annotation_by_idx(db, annotation_file_id=db_annotation_file.id, annotation_idx=bbox_to_load_str)
                 if db_anno_data_to_load:
                     map_input_idx_to_list_pos = {item['index']: i for i, item in enumerate(input_ids)}
@@ -1470,7 +1516,21 @@ class FeatureAnnotation(Tool):
                             
                             output_autoload_label_comments[map_comment_idx_to_list_pos.get(i)] = user_label_entry.label_comment or ""
                             output_comment_collapse_is_open[map_comment_idx_to_list_pos.get(i)] = bool(user_label_entry.label_comment)
-
+                
+                
+                num_total = db.query(func.count(AnnotationData.id)).filter_by(annotation_file_id=annotation_file_id).scalar()
+                num_annotated = (
+                    db.query(func.count(UserAnnotationLabel.annotation_id.distinct()))
+                    .join(AnnotationData, UserAnnotationLabel.annotation_id == AnnotationData.id)
+                    .filter(
+                        UserAnnotationLabel.user_id == user_id,
+                        AnnotationData.annotation_file_id == annotation_file_id
+                    )
+                    .scalar()
+                )
+        
+        progress_text = f"{num_annotated} / {num_total}"
+        progress_percent = int((num_annotated / num_total) * 100) if num_total else 0     
         # --- 4. Prepare and Return Outputs for the UI ---
         image_region, marker_centroid = self.get_structure_region(bbox_to_load_coords if bbox_to_load_coords else [], slide_information)
 
@@ -1487,13 +1547,14 @@ class FeatureAnnotation(Tool):
         new_goto_value = current_structure_index_for_load + 1 if num_total_bboxes > 0 else None
         # Set the text for the label next to the input box, e.g., "of 150".
         total_label_text = f"of {num_total_bboxes}"
-
         # Return all the updated values to the app's frontend components.
         return (
             [image_figure],
             [json.dumps(current_structure_data)], 
             [new_goto_value],
             [total_label_text],
+            [progress_percent],
+            [progress_text],
             new_markers_div,
             output_autoload_label_values, 
             output_autoload_label_comments,

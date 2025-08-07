@@ -55,11 +55,11 @@ class SlideMap(MapComponent):
     :param MapComponent: General class for components added to SlideMap
     :type MapComponent: None
     """
-    def __init__(self):
+    def __init__(self,task_identifier):
         """Constructor method
         """
         super().__init__()
-
+        self.task_identifier = task_identifier
         # Add Namespace functions here:
         self.assets_folder = os.getcwd()+'/.fusion_assets/'
         self.get_namespace()
@@ -196,9 +196,15 @@ class SlideMap(MapComponent):
 
         layout = html.Div([
             dcc.Interval(
+                id={'type': 'slide-select-trigger-once', 'index': 0},
+                interval=100,  
+                max_intervals=1,
+                n_intervals=0
+            ),
+            dcc.Interval(
                 id={'type': 'slide-select-trigger-interval', 'index': 0},
-                interval=500,  # Fire after 500 milliseconds
-                max_intervals=1, # Fire only once
+                interval=10*1000,  # Fire every 10 seconds
+                max_intervals=-1, # Trigger infinetly.
                 n_intervals=0
             ),
             dcc.Dropdown(
@@ -536,13 +542,14 @@ class SlideMap(MapComponent):
         # Updating based on modifications to current visualization session
         self.blueprint.callback(
             [
-                Input('anchor-vis-store','data')
+                Input('anchor-vis-store','data'),
+                Input({'type': 'slide-select-trigger-once', 'index': ALL}, 'n_intervals'),
+                Input({'type': 'slide-select-trigger-interval', 'index': ALL}, 'n_intervals')
             ],
             [
                 Output({'type':'slide-select-drop','index': ALL},'options')
             ]
         )(self.update_vis_session)
-
         # Updating current slide and annotations
         self.blueprint.callback(
             [
@@ -897,8 +904,24 @@ class SlideMap(MapComponent):
                 Input({'type': 'map-slide-information','index': ALL},'data')
             ]
         )
+    #Move this to utils as this is being used in multiple files 
     
-    def update_vis_session(self, new_vis_data):
+    def extract_itemid_from_regions_url(self,url:str) -> str:
+        if not url: 
+            return None
+        try:
+            parts = url.split('/')
+            item_index = parts.index('item')
+            # The item_id is the part immediately after 'item'
+            if item_index + 1 < len(parts):
+                return parts[item_index + 1]
+            else:
+                return None
+        except ValueError:
+            # 'item' not found in the URL
+            return None
+
+    def update_vis_session(self, new_vis_data, interval, interva_):
         """Updating slide dropdown options based on current visualization session
 
         :param new_vis_data: Visualization session data containing information on selectable slides
@@ -907,17 +930,32 @@ class SlideMap(MapComponent):
         :rtype: list
         """
         new_vis_data = json.loads(new_vis_data)
+        user_data = new_vis_data.get('current_user', {})
+        user_id = user_data.get('_id', "")
+        options = []
+        if user_id:
+            with get_db() as db:
+                for idx, item in enumerate(new_vis_data.get("current", [])):
+                    slide_name = item.get("name", "unknown")
+                    regions_url = item.get("regions_url", "")
+                    if not regions_url:
+                        continue
+                    slide_id = self.extract_itemid_from_regions_url(regions_url)
+                    percent, _, _ = get_slide_progress_summary_for_user(db, user_id, slide_id=slide_id,task_identifier=self.task_identifier,required_only=True)
+                    percent_value = int(percent)
+                    label = f"{slide_name} ({percent_value}%)"
+                    options.append({'label': label, 'value': idx})
+        else:       
+            options = [
+                {
+                    'label': i['name'],
+                    'value': idx
+                }
+                for idx, i in enumerate(new_vis_data.get("current", []))
+            ]
 
-        new_slide_options = [
-            {
-                'label': i['name'],
-                'value': idx
-            }
-            for idx, i in enumerate(new_vis_data['current'])
-        ]
-
-        return [new_slide_options]
-
+        return [options]
+    
     def update_slide(self, slide_selected, vis_data):
         
         if not any([i['value'] or i['value']==0 for i in ctx.triggered]):

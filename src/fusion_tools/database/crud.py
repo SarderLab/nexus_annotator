@@ -181,6 +181,8 @@ def get_or_create_file_progress(db: Session, user_id: int, annotation_file_id: i
         .filter_by(user_id=user_id, annotation_file_id=annotation_file_id)
         .first()
     )
+    if entry:
+        return entry
     if not entry:
         entry = UserFileProgress(
             user_id=user_id, annotation_file_id=annotation_file_id,
@@ -255,29 +257,30 @@ def label_annotation_and_update_progress(db: Session, user_id: str, annotation_i
     return label_entry
 
 # --- Progress summary for a slide (aggregates files) ---
-def get_slide_progress_summary_for_user(db: Session, user_id: str, slide_internal_id: int, required_only: bool = False): # user_id to str
-    # ... (rest of the function, ensure internal calls to get_or_create_file_progress use matching user_id type)
-    required_files = get_annotation_files_for_slide(db, slide_internal_id, required_only=True)
-    
-    if not required_files and required_only:
-        return 0.0, False, [] 
-
-    if not required_files and not required_only: # No annotation files at all for this slide
-        files_to_check_for_empty = get_annotation_files_for_slide(db, slide_internal_id, required_only=False)
-        if not files_to_check_for_empty:
+def get_slide_progress_summary_for_user(db: Session, user_id: str, slide_internal_id: int = None, slide_id: int = None, required_only: bool = False, task_identifier: str = None): 
+    if slide_internal_id is None and slide_id is not None:
+        slide = db.query(Slide).filter(Slide.slide_id == slide_id).first()
+        if not slide:
             return 0.0, False, []
+        slide_internal_id = slide.id
+    
+    if slide_internal_id is None:
+        return 0.0, False, []
+    file_query = db.query(AnnotationFile).filter(AnnotationFile.slide_id == slide_internal_id)
+    if required_only:
+        file_query = file_query.filter(AnnotationFile.is_required_for_completeness == True)
+    if task_identifier is not None:
+        file_query = file_query.filter(AnnotationFile.file_type.like(f"{task_identifier}_%"))
+    
+    files_to_check = file_query.all()
+    if not files_to_check: # Still no files after attempting to get all
+        return 0.0, False, []
 
-
+    
     total_annotations_for_slide = 0
     total_labeled_annotations_for_slide = 0
     all_completed_flag = True
     progress_details = []
-
-    files_to_check = required_files if required_only and required_files else get_annotation_files_for_slide(db, slide_internal_id, required_only=False)
-    
-    if not files_to_check: # Still no files after attempting to get all
-        return 0.0, False, []
-
 
     for f in files_to_check:
 

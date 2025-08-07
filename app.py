@@ -350,7 +350,7 @@ def main():
         components = {
             "DN Labels": [
                         [
-                        (   SlideMap(),
+                        (   SlideMap(task_identifier=task_identifiers['DN']),
                             {'width': '3',} 
                         ),
                         (
@@ -373,7 +373,7 @@ def main():
             ],
             "FSGS Annotation": [
                 [
-                        (   SlideMap(),
+                        (   SlideMap(task_identifier=task_identifiers['FSGS']),
                             {'width': '3'} 
                         ),
                         (
@@ -393,7 +393,7 @@ def main():
             ],
             "Tx Annotation": [
                 [
-                        (   SlideMap(),
+                        (   SlideMap(task_identifier=task_identifiers['TX']),
                             {'width': '4'} 
                         ),
                         (
