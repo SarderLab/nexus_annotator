@@ -1337,8 +1337,20 @@ class FeatureAnnotation(Tool):
 
         # If no structure type is selected from the dropdown, we can't proceed.
         if not structure_drop_value or not current_structure_data or structure_drop_value not in structure_names_in_data:
-            # Clear the navigation box and stop the update.
-            return [no_update], [no_update], [None], ["of 0"], [[]], no_update, no_update, no_update
+            # return [no_update], [no_update], [None], ["of 0"], [no_update] * len(input_ids), [no_update] * len(input_ids), [no_update] * len(input_ids), [no_update] * len(input_ids), no_update, no_update
+            return (
+    [no_update],                         
+    [no_update],                        
+    [None],                              
+    ["of 0"],                            
+    no_update,                           
+    no_update,                          
+    [no_update],                         
+    [no_update] * len(input_ids),        
+    [no_update] * len(comment_ids),      
+    [no_update] * len(comment_ids),      
+)
+
 
         # --- 2. Navigation Logic: Determine the new region index to load ---
         struct_list_idx = structure_names_in_data.index(structure_drop_value)
