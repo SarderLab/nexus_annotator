@@ -259,6 +259,14 @@ fsgs = {
 tx_schema = {
     'labels': [
         {
+            'name': 'Not Evaluable',
+            'type': 'checkbox',
+            'options': [
+                'Capsule'
+            ],
+            'order': COL1
+        },
+        {
             'name': 'Normal',
             'type': 'checkbox',
             'options': [
@@ -267,37 +275,51 @@ tx_schema = {
             'order': COL1
         },
         {
-            'name': 'Glomerulus',
-            'type': 'radio',
+            'name': 'Medulla',
+            'type': 'checkbox',
             'options': [
-                'Sclerosed'
+                'Yes'
             ],
             'order': COL1
         },
         {
-            'name': 'Tubular Basement Membrane',
-            "type": "radio",
+            'name': 'Glomerulus',
+            'type': 'checkbox',
             'options': [
-                "Mild Thickening of Basement Membrane",
-                "Severe Thickening of Basement Membrane",
-                "Severe Thickening of Basement Membrane with Wrinkling"
-            ]
+                'Sclerosed',
+                'Ischemic',
+                'PGF(Periglomerular Fibrosis)',
+                'Other Abnormalities'
+            ],
+            'order': COL1
+        },
+        {
+            'name': 'Artery',
+            'type': 'checkbox',
+            'options': [
+                'Present',
+                'Intimal Thickening',
+                'Adventitia',
+                'Suboptimal'
+            ],
+            'order': COL1
         },
         {
             'name': 'Tubular Atrophy',
             'type': 'checkbox',
             'options': [
-                'Yes',
-                'With Thyroidization',
-                'With Endocrinization',
+                'Classic',
+                'Thyroidization',
+                'Endocrinization',
             ],
             'order': COL2
         },
         {
-            'name': 'Intimal Thickening',
-            'type': 'checkbox',
+            'name': 'Tubular Basement Membrane',
+            "type": "checkbox",
             'options': [
-                'Present'
+                "Thickening",
+                "MultiLayering/Wrinkling",
             ],
             'order': COL2
         },
@@ -305,16 +327,18 @@ tx_schema = {
             'name': 'Interstitial Expansion',
             'type': 'checkbox',
             'options': [
-                'Present',
-                'With Inflammation'
+                'Edema',
+                'Matrix',
+                'Inflammation'
             ],
             'order': COL2
         },
         {
             'name': 'Vascular Hylanosis',
-            'type': 'checkbox',
+            'type': 'radio',
             'options': [
-                'Present'
+                'Present',
+                'Absent (Vessel Present)'
             ],
             'order': COL2
         },
