@@ -327,9 +327,15 @@ tx_schema = {
             'name': 'Interstitial Expansion',
             'type': 'checkbox',
             'options': [
-                'Edema',
-                'Matrix',
-                'Inflammation'
+                'Yes'
+            ],
+            'order': COL2
+        },
+        {
+            'name': 'Inflammation',
+            'type': 'checkbox',
+            'options': [
+                'Yes'
             ],
             'order': COL2
         },
