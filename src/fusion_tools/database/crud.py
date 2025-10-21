@@ -267,6 +267,7 @@ def get_slide_progress_summary_for_user(db: Session, user_id: str, slide_interna
     if slide_internal_id is None:
         return 0.0, False, []
     file_query = db.query(AnnotationFile).filter(AnnotationFile.slide_id == slide_internal_id)
+    #THIS CHECK NEEDS TO BE DONE - DUE TO PROD DATABSE HAVING INCONSISTENT ENTIRES AND AS FILTERING IS DONE IN SEGMENTATION.PY, WE CAN SKIP THIS.
     if required_only:
         file_query = file_query.filter(AnnotationFile.is_required_for_completeness == True)
     if task_identifier is not None:

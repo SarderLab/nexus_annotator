@@ -108,7 +108,8 @@ class Visualization:
 
         self.default_options = {
             'title': 'FUSION',
-            'assets_folder': '/.fusion_assets/',
+            # 'assets_folder': '/.fusion_assets/',
+            'assets_folder': '/assets/',
             'server': 'default',
             'server_options': {},
             'port': 8080,

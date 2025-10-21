@@ -19,7 +19,7 @@ class RestartOnChangeHandler(FileSystemEventHandler):
 if __name__ == "__main__":
     path = "."  # directory to watch
     command = "python app.py"  # your app start command
-
+    os.environ["DATABASE_PATH"] = os.getcwd()
     event_handler = RestartOnChangeHandler(command)
     observer = Observer()
     observer.schedule(event_handler, path=path, recursive=True)

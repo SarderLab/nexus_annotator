@@ -17,6 +17,14 @@ window.fusionTools = Object.assign({}, window.fusionTools, {
                 draggable: false,
             });
 
+            const map = context?.map || window.mainSlideMap;
+
+            if (map) {
+                // Smoothly pan and zoom to the marker location, 
+                // if you want, you can play around with the zoom levels. For now, it's 7 for our requirements.
+                map.flyTo(latlng, 7);  
+            }
+
             return marker;
         }
 
